@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   db:
     image: postgres:15
@@ -13,8 +12,10 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - ./backend/.env
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -22,6 +23,7 @@ services:
       DB_PASSWORD: certipass
       DB_NAME: certicheck
       NODE_ENV: production
+      PORT: 3000
     ports:
       - "3000:3000"
     depends_on:

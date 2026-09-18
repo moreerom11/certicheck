@@ -134,5 +134,22 @@
     "revoked_at": null,
     "revoked_by": null,
     "created_by": 1
+  },
+  {
+    "id": 9,
+    "certificate_id": "E2E-1789695610949",
+    "certificate_type": "End-to-End Test Certificate",
+    "verification_status": "valid",
+    "verification_message": "Issued via Certicheck",
+    "blockchain_hash": "QmRixxTBseVqBUY1E52u5h6d4W7JqCxu8DxvkZxEJeVabN",
+    "blockchain_transaction_id": "demo-e2e-1789695610949",
+    "holder_name": "Jane Holder",
+    "holder_email": "holder@example.com",
+    "issuer_name": "E2E Org",
+    "issuer_wallet": "11111111111111111111111111111112",
+    "checked_at": "2026-09-18T01:40:11.875Z",
+    "revoked_at": null,
+    "revoked_by": null,
+    "created_by": 2
   }
 ]

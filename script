@@ -273,14 +273,15 @@ async function renderVerifyResult(response) {
   const resultEl = document.getElementById("verifyResult");
   if (!resultEl) return;
 
-  if (!response.success) {
-    resultEl.innerHTML = `<div class="alert alert-error">${response.error || 'Certificate not found'}</div>`;
+  if (!response || !response.success) {
+    resultEl.innerHTML = `<div class="alert alert-error"><strong>Not Found</strong><br/>${response?.error || 'No certificate matched that ID.'}</div>`;
     return;
   }
 
   const certificate = response.certificate || {};
-  const status = certificate.verification_status || response.status || 'unknown';
-  const color = status === 'valid' ? '#059669' : status === 'revoked' ? '#dc2626' : '#a855f7';
+  const rawStatus = (certificate.verification_status || response.status || 'unknown').toLowerCase();
+  const status = rawStatus === 'revoked' ? 'Revoked' : rawStatus === 'valid' ? 'Valid' : rawStatus === 'invalid' ? 'Invalid' : 'Not Found';
+  const color = rawStatus === 'valid' ? '#059669' : rawStatus === 'revoked' ? '#dc2626' : '#a855f7';
   const lastChecked = certificate.checked_at || certificate.verifiedAt || certificate.issued_at || new Date().toISOString();
   const txId = certificate.blockchain_transaction_id || certificate.blockchainTransactionId || 'Not issued on-chain';
   const cid = certificate.blockchain_hash || certificate.ipfsCid || certificate.ipfs_cid || 'N/A';
@@ -364,16 +365,20 @@ async function verifyCertificate() {
   }
 
   if (resultEl) {
-    resultEl.innerHTML = `<div class="alert alert-info">Checking certificate ${certificateId}...</div>`;
+    resultEl.innerHTML = `<div class="alert alert-info">Checking certificate ${certificateId} on-chain...</div>`;
   }
 
   try {
     const response = await fetch(`${API_BASE_URL}/certificates/lookup/${encodeURIComponent(certificateId)}`);
     const data = await response.json();
+    if (!response.ok) {
+      await renderVerifyResult({ success: false, error: data?.error || 'Not Found' });
+      return;
+    }
     await renderVerifyResult(data);
   } catch (err) {
     const demoData = getDemoCertificateData(certificateId);
-    await renderVerifyResult(demoData ? { success: true, certificate: demoData } : { success: false, error: 'Certificate not found' });
+    await renderVerifyResult(demoData ? { success: true, certificate: demoData } : { success: false, error: 'Not Found' });
   }
 }
 
@@ -972,6 +977,56 @@ function initTheme() {
   });
 }
 
+function buildVerificationLink(certificateId) {
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?certificate=${encodeURIComponent(certificateId)}`;
+}
+
+async function copyVerificationLink(certificateId) {
+  const link = buildVerificationLink(certificateId);
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(link);
+      return true;
+    }
+
+    const helper = document.createElement('textarea');
+    helper.value = link;
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    document.body.appendChild(helper);
+    helper.select();
+    document.execCommand('copy');
+    helper.remove();
+    return true;
+  } catch (err) {
+    console.warn('Failed to copy verification link:', err);
+    return false;
+  }
+}
+
+function getHolderCertificatesForUser(user) {
+  if (!user) return [];
+
+  const raw = localStorage.getItem('certicheck_issued_certificates');
+  const arr = raw ? JSON.parse(raw) : [];
+
+  return arr.filter((certificate) => {
+    const holderEmail = String(certificate.holderEmail || certificate.holder_email || '').toLowerCase();
+    const holderWallet = String(certificate.holderWallet || certificate.holder_wallet || '');
+    const issuerEmail = String(certificate.issuerEmail || certificate.issuer_email || '').toLowerCase();
+    const userEmail = String(user.email || '').toLowerCase();
+    const userWallet = String(user.wallet || '');
+
+    return (
+      (userEmail && holderEmail && holderEmail === userEmail) ||
+      (userWallet && holderWallet && holderWallet === userWallet) ||
+      (user.id && Number(certificate.userId) === Number(user.id)) ||
+      (userEmail && issuerEmail && issuerEmail === userEmail)
+    );
+  });
+}
+
 function initHolderDashboard() {
   const notice = document.getElementById('holderNotice');
   const wrap = document.getElementById('holderCertListWrap');
@@ -990,22 +1045,53 @@ function initHolderDashboard() {
   wrap.style.display = 'block';
 
   try {
-    const raw = localStorage.getItem('certicheck_issued_certificates');
-    const arr = raw ? JSON.parse(raw) : [];
-    const ours = arr.filter(c => (c.holderEmail && user.email && c.holderEmail.toLowerCase() === user.email.toLowerCase()) || (c.holderWallet && user.wallet && c.holderWallet === user.wallet));
+    const ours = getHolderCertificatesForUser(user);
     if (!ours.length) {
       listEl.innerHTML = '<div>No certificates found for your account.</div>';
       return;
     }
 
-    listEl.innerHTML = ours.map(c => `
-      <div style="padding:10px;border-bottom:1px solid rgba(0,0,0,0.04)">
-        <div style="font-family:var(--font-mono)">${c.certificateId}</div>
-        <div style="color:var(--text-secondary);font-size:13px">${c.certificateType || ''} — ${c.issuedAt ? new Date(c.issuedAt).toLocaleDateString() : ''}</div>
-        <div style="margin-top:6px">${c.ipfsCid ? `<a href="${c.ipfsUri || 'https://ipfs.io/ipfs/' + c.ipfsCid}" target="_blank">View certificate (IPFS)</a>` : ''} ${c.blockchainTransactionId ? ` • <a href="${c.blockchainExplorerUrl || '#'}" target="_blank">On-chain</a>` : ''}</div>
-      </div>
-    `).join('');
+    listEl.innerHTML = ours.map((certificate) => {
+      const certId = certificate.certificateId || certificate.certificate_id || 'Unknown certificate';
+      const status = certificate.status || certificate.verification_status || 'valid';
+      const issuer = certificate.issuerName || certificate.issuer_name || certificate.issuerWallet || certificate.issuer_wallet || 'Unknown issuer';
+      const date = certificate.issuedAt ? new Date(certificate.issuedAt).toLocaleDateString() : (certificate.issued_at ? new Date(certificate.issued_at).toLocaleDateString() : 'N/A');
+      const ipfsUrl = certificate.ipfsUri || (certificate.ipfsCid ? `https://ipfs.io/ipfs/${certificate.ipfsCid}` : null);
+      const verificationUrl = buildVerificationLink(certId);
+
+      return `
+        <div style="padding:16px 14px;border:1px solid rgba(0,0,0,0.06);border-radius:12px;margin-bottom:12px;background:rgba(255,255,255,0.5)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+            <div>
+              <div style="font-family:var(--font-mono);font-size:13px;font-weight:700">${certId}</div>
+              <div style="margin-top:6px;color:var(--text-secondary);font-size:13px">${certificate.certificateType || certificate.certificate_type || 'Certificate'} • ${date}</div>
+            </div>
+            <span style="padding:4px 8px;border-radius:999px;background:${status === 'revoked' ? 'rgba(220,38,38,0.12)' : 'rgba(5,118,210,0.12)'};color:${status === 'revoked' ? '#b91c1c' : '#0f172a'};font-size:12px;font-weight:600;text-transform:capitalize">${status}</span>
+          </div>
+
+          <div style="margin-top:10px;font-size:13px;color:var(--text-secondary)">
+            <div><strong>Issuer:</strong> ${issuer}</div>
+          </div>
+
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-ghost" data-share-cert="${certId}" type="button">Share</button>
+            ${ipfsUrl ? `<a class="btn-ghost" href="${ipfsUrl}" target="_blank" rel="noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Download</a>` : '<button class="btn-ghost" type="button" disabled>Download</button>'}
+            <a class="btn-ghost" href="${verificationUrl}" target="_blank" rel="noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Verify</a>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    listEl.querySelectorAll('[data-share-cert]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const certId = button.getAttribute('data-share-cert');
+        const copied = await copyVerificationLink(certId);
+        button.textContent = copied ? 'Copied' : 'Copy failed';
+        setTimeout(() => { button.textContent = 'Share'; }, 1200);
+      });
+    });
   } catch (e) {
+    console.warn('Failed to render holder dashboard certificates:', e);
     listEl.innerHTML = '<div>Error loading certificates.</div>';
   }
 }

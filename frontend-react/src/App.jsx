@@ -1,81 +1,147 @@
-<<<<<<< HEAD
 import React, { useState } from 'react'
-=======
-import React, { useMemo, useCallback, useState } from 'react'
-import {
-  ConnectionProvider,
-  WalletProvider,
-  useWallet
-} from '@solana/wallet-adapter-react'
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom'
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import '@solana/wallet-adapter-react-ui/styles.css'
-import * as web3 from '@solana/web3.js'
->>>>>>> origin/main
+
+async function connectWallet() {
+  if (window.solana && window.solana.isPhantom) {
+    const resp = await window.solana.connect()
+    return resp.publicKey.toString()
+  }
+  alert('Phantom wallet not found — please install it.')
+  return null
+}
 
 function IssueForm({ onResult }) {
-  import React, { useMemo, useCallback, useState } from 'react'
-  import {
-    ConnectionProvider,
-    WalletProvider,
-    useWallet
-  } from '@solana/wallet-adapter-react'
-  import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom'
-  import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-  import '@solana/wallet-adapter-react-ui/styles.css'
-  import * as web3 from '@solana/web3.js'
+  const [form, setForm] = useState({
+    certificateId: 'CERT-FRONTEND-' + Date.now(),
+    holderName: 'Frontend Holder',
+    holderEmail: 'holder@example.com',
+    certificateType: 'Demo Certificate',
+    issuerName: 'Frontend Issuer',
+    issuerWallet: 'demo-wallet',
+    onChain: false
+  })
+  const [status, setStatus] = useState('')
+  const [issuedCertificate, setIssuedCertificate] = useState(null)
+  const [walletAddress, setWalletAddress] = useState('')
 
-<<<<<<< HEAD
-    const wallet = useWallet()
-    const [status, setStatus] = useState('')
-    const [issueOnChain, setIssueOnChain] = useState(false)
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target
+    setForm((current) => ({
+      ...current,
+      [name]: type === 'checkbox' ? checked : value
+    }))
+  }
+
+  const onIssue = async () => {
     setStatus('Issuing via backend...')
-    const onIssue = useCallback(async () => {
-      if (issueOnChain && (!wallet.connected || !wallet.publicKey)) return alert('Connect a Phantom wallet first')
-      setStatus(issueOnChain ? 'Preparing on-chain issuance...' : 'Issuing via backend...')
-    if (!wallet.connected || !wallet.publicKey) return alert('Connect a Phantom wallet first')
+    setIssuedCertificate(null)
 
-    setStatus('Preparing issuance...')
-
-    // For on-chain issuance: pin metadata via backend, build a memo tx, sign with Phantom, send, then record
->>>>>>> origin/main
     try {
-      const certificateId = `CERT-FRONTEND-${Date.now()}`
+      const payload = {
+        certificateId: form.certificateId,
+        holderName: form.holderName,
+        holderEmail: form.holderEmail,
+        certificateType: form.certificateType,
+        issuerName: form.issuerName,
+        issuerWallet: form.issuerWallet,
+        onChain: form.onChain,
+        metadata: { source: 'frontend-react' }
+      }
+
       const res = await fetch('/api/certificates/issue', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token', 'x-demo-user-type': 'issuer' },
-        body: JSON.stringify({ certificateId, holderName: 'Frontend Holder', holderEmail: 'holder@example.com', certificateType: 'Demo', issuerName: 'Frontend Issuer', issuerWallet: 'demo', onChain: false })
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer demo-token',
+          'x-demo-user-type': 'issuer'
+        },
+        body: JSON.stringify(payload)
       })
-      const j = await res.json()
-      setStatus(JSON.stringify(j, null, 2))
-      if (onResult) onResult(j)
-      <div style={{ padding: 20 }}>
-        <h2>Issuer Demo</h2>
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Certificate issuance failed')
+      }
+
+      setIssuedCertificate(data?.certificate || data)
+      setStatus(JSON.stringify(data, null, 2))
+      if (onResult) onResult(data)
+    } catch (err) {
+      setStatus(JSON.stringify({ error: err.message }, null, 2))
     }
-          <WalletMultiButton />
+  }
+
+  const handleConnectWallet = async () => {
+    const address = await connectWallet()
+    if (address) {
+      setWalletAddress(address)
+      setForm((current) => ({ ...current, issuerWallet: address }))
+    }
+  }
 
   return (
-<<<<<<< HEAD
-    <div style={{ padding: 20, borderRight: '1px solid #eee', minHeight: '240px' }}>
+    <div style={{ padding: 20, borderRight: '1px solid #eee', minHeight: '240px', width: '50%' }}>
       <h3>Issue Certificate</h3>
       <div style={{ marginBottom: 12 }}>
-        <button onClick={onIssue}>Issue Certificate (demo)</button>
-=======
-    <div style={{ padding: 20 }}>
-      <h2>Issuer Demo</h2>
-      <div style={{ marginBottom: 12 }}>
-        <WalletMultiButton />
+        <button type="button" onClick={handleConnectWallet}>Connect Wallet</button>
       </div>
-      <div style={{ marginBottom: 12, fontSize: 13 }}>
-        <strong>Wallet:</strong>{' '}
-        {wallet.connected && wallet.publicKey ? wallet.publicKey.toString() : 'Not connected'}
+      {walletAddress && (
+        <div style={{ marginBottom: 12, fontSize: 13 }}>
+          <strong>Wallet:</strong> {walletAddress}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        <label>
+          Certificate ID
+          <input name="certificateId" value={form.certificateId} onChange={handleChange} style={{ width: '100%' }} />
+        </label>
+
+        <label>
+          Holder Name
+          <input name="holderName" value={form.holderName} onChange={handleChange} style={{ width: '100%' }} />
+        </label>
+
+        <label>
+          Holder Email
+          <input name="holderEmail" value={form.holderEmail} onChange={handleChange} style={{ width: '100%' }} />
+        </label>
+
+        <label>
+          Certificate Type
+          <input name="certificateType" value={form.certificateType} onChange={handleChange} style={{ width: '100%' }} />
+        </label>
+
+        <label>
+          Issuer Name
+          <input name="issuerName" value={form.issuerName} onChange={handleChange} style={{ width: '100%' }} />
+        </label>
+
+        <label>
+          Issuer Wallet
+          <input name="issuerWallet" value={form.issuerWallet} onChange={handleChange} style={{ width: '100%' }} />
+        </label>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input name="onChain" type="checkbox" checked={form.onChain} onChange={handleChange} />
+          Issue on-chain when configured
+        </label>
+
+        <button type="button" onClick={onIssue} style={{ width: 180 }}>
+          Issue Certificate
+        </button>
       </div>
-      <label style={{display:'block',marginBottom:8}}><input type="checkbox" checked={issueOnChain} onChange={e => setIssueOnChain(e.target.checked)} style={{marginRight:8}}/> Issue on-chain (devnet)</label>
-      <div>
-        <button disabled={!wallet.connected} onClick={onIssue}>Issue Certificate</button>
->>>>>>> origin/main
-      </div>
-      <pre style={{ whiteSpace: 'pre-wrap' }}>{status}</pre>
+
+      {issuedCertificate && (
+        <div style={{ marginTop: 16, padding: 12, border: '1px solid #d9d9d9', borderRadius: 8, background: '#fafafa' }}>
+          <h4 style={{ marginTop: 0 }}>Issued certificate</h4>
+          <div><strong>Certificate ID:</strong> {issuedCertificate.certificate_id || issuedCertificate.certificateId || '—'}</div>
+          <div><strong>IPFS CID:</strong> {issuedCertificate.ipfs_cid || issuedCertificate.ipfsCid || '—'}</div>
+          <div><strong>Transaction Signature:</strong> {issuedCertificate.blockchain_transaction_id || issuedCertificate.blockchainTransactionId || '—'}</div>
+        </div>
+      )}
+
+      <pre style={{ whiteSpace: 'pre-wrap', marginTop: 16 }}>{status || 'No result yet'}</pre>
     </div>
   )
 }
@@ -83,34 +149,71 @@ function IssueForm({ onResult }) {
 function LookupForm() {
   const [id, setId] = useState('')
   const [result, setResult] = useState(null)
+  const [walletAddress, setWalletAddress] = useState('')
+
+  const handleConnectWallet = async () => {
+    const address = await connectWallet()
+    if (address) {
+      setWalletAddress(address)
+    }
+  }
 
   async function onLookup() {
     setResult({ loading: true })
     try {
       const res = await fetch(`/api/certificates/lookup/${encodeURIComponent(id)}`)
-      const j = await res.json()
-      setResult(j)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.error || 'Lookup failed')
+      }
+      setResult(data)
     } catch (err) {
       setResult({ error: err.message })
     }
   }
 
   async function onRevoke() {
+    setResult({ loading: true })
     try {
-      const res = await fetch(`/api/certificates/revoke/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token', 'x-demo-user-type': 'admin' }, body: JSON.stringify({ reason: 'Revoked from frontend demo' }) })
-      const j = await res.json()
-      setResult(j)
+      const res = await fetch(`/api/certificates/revoke/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer demo-token',
+          'x-demo-user-type': 'admin'
+        },
+        body: JSON.stringify({ reason: 'Revoked from frontend demo' })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.error || 'Revocation failed')
+      }
+      setResult(data)
     } catch (err) {
       setResult({ error: err.message })
     }
   }
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, width: '50%' }}>
       <h3>Lookup / Revoke</h3>
+      <div style={{ marginBottom: 12 }}>
+        <button type="button" onClick={handleConnectWallet}>Connect Wallet</button>
+      </div>
+      {walletAddress && (
+        <div style={{ marginBottom: 12, fontSize: 13 }}>
+          <strong>Wallet:</strong> {walletAddress}
+        </div>
+      )}
       <div style={{ marginBottom: 8 }}>
-        <input placeholder="Certificate ID" value={id} onChange={e => setId(e.target.value)} style={{ width: 320 }} />
-        <button onClick={onLookup} style={{ marginLeft: 8 }}>Lookup</button>
+        <input
+          placeholder="Certificate ID"
+          value={id}
+          onChange={(e) => setId(e.target.value)}
+          style={{ width: 320, marginRight: 8 }}
+        />
+        <button onClick={onLookup}>Lookup</button>
         <button onClick={onRevoke} style={{ marginLeft: 8 }}>Revoke (admin)</button>
       </div>
       <pre style={{ whiteSpace: 'pre-wrap' }}>{result ? JSON.stringify(result, null, 2) : 'No result'}</pre>
@@ -120,17 +223,11 @@ function LookupForm() {
 
 export default function App() {
   const [last, setLast] = useState(null)
-  const endpoint = useMemo(() => process.env.REACT_APP_SOLANA_RPC_URL || 'https://api.devnet.solana.com', [])
-  const wallets = useMemo(() => [new PhantomWalletAdapter()], [])
 
   return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <div style={{ display: 'flex', minHeight: '100vh' }}>
-          <IssueForm onResult={setLast} />
-          <LookupForm />
-        </div>
-      </WalletProvider>
-    </ConnectionProvider>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <IssueForm onResult={setLast} />
+      <LookupForm last={last} />
+    </div>
   )
 }
