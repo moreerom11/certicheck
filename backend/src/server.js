@@ -5,6 +5,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const https = require('https');
 const pool = require('./db/connection');
+const { initializeDatabase } = require('./db/init');
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -21,15 +22,18 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
   'http://localhost:4173',
-  'http://127.0.0.1:4173',
   'http://localhost:5173',
+  'http://127.0.0.1:5000',
+  'http://127.0.0.1:4173',
+  'http://127.0.0.1:5173',
   'file://'
 ];
 app.use(cors({
   origin: function(origin, cb) {
-    // allow requests with no origin (e.g. curl, server-to-server)
+    // allow local development origins without forcing one host over another
     if (!origin) return cb(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return cb(null, true);
     return cb(new Error('Not allowed by CORS'));
   },
   credentials: true
@@ -148,11 +152,26 @@ app.use((err, req, res, next) => {
 });
 
 // ── START SERVER ───────────────────────────────────────────────────────────
+async function startServer() {
+  try {
+    const dbReady = await initializeDatabase();
+    if (!dbReady) {
+      console.error('PostgreSQL is not reachable. Start the database first: docker compose up -d db');
+      process.exit(1);
+    }
+
+    app.listen(PORT, () => {
+      console.log(`✓ Certicheck backend running on http://localhost:${PORT}`);
+      console.log(`✓ Health check: http://localhost:${PORT}/health`);
+    });
+  } catch (err) {
+    console.error('Failed to start backend:', err.message || err);
+    process.exit(1);
+  }
+}
+
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`✓ Certicheck backend running on http://localhost:${PORT}`);
-    console.log(`✓ Health check: http://localhost:${PORT}/health`);
-  });
+  startServer();
 }
 
 module.exports = app;

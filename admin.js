@@ -1,6 +1,6 @@
 "use strict";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = `${window.location.origin}/api`;
 const ADMIN_SESSION_KEY = "certicheck_admin_logged_in";
 const ADMIN_TOKEN_KEY = "certicheck_admin_token";
 const ADMIN_USER_KEY = "certicheck_admin_user";
@@ -184,22 +184,22 @@ function renderAdminDashboard() {
     }
 
     list.innerHTML = pending.map(app => `
-      <div class="resource-card" style="padding:22px 24px;margin-bottom:16px;">
+      <div class="admin-list-card">
         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">${app.organization_name || app.orgName || "Unknown organisation"}</div>
+            <div style="font-size:15px;font-weight:800;color:var(--text-primary);">${app.organization_name || app.orgName || "Unknown organisation"}</div>
             <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${app.organization_type || app.orgType || "—"} · ${app.organization_website || app.orgWebsite || "No website provided"}</div>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
-            <button class="btn-primary" data-action="approve" data-id="${app.id}">Approve</button>
-            <button class="btn-ghost" data-action="reject" data-id="${app.id}">Reject</button>
+          <div class="admin-action-row">
+            <button class="btn-success" data-action="approve" data-id="${app.id}">Approve</button>
+            <button class="btn-danger" data-action="reject" data-id="${app.id}">Reject</button>
           </div>
         </div>
-        <div style="margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:12px;">
-          <div><strong>Contact</strong><br/>${app.contact_name || app.contactName || "-"}<br/><a href="mailto:${app.contact_email || app.contactEmail || ""}" style="color:var(--purple-mid);">${app.contact_email || app.contactEmail || "-"}</a></div>
-          <div><strong>Role</strong><br/>${app.contact_role || app.contactRole || "-"}</div>
-          <div><strong>Volume</strong><br/>${app.certificate_volume || app.volume || "-"}</div>
-          <div><strong>Wallet</strong><br/>${app.wallet_address || app.wallet || "Optional"}</div>
+        <div class="admin-detail-grid">
+          <div class="admin-detail-item"><span class="admin-detail-label">Contact</span>${app.contact_name || app.contactName || "-"}<br/><a href="mailto:${app.contact_email || app.contactEmail || ""}" style="color:var(--purple-mid);">${app.contact_email || app.contactEmail || "-"}</a></div>
+          <div class="admin-detail-item"><span class="admin-detail-label">Role</span>${app.contact_role || app.contactRole || "-"}</div>
+          <div class="admin-detail-item"><span class="admin-detail-label">Volume</span>${app.certificate_volume || app.volume || "-"}</div>
+          <div class="admin-detail-item"><span class="admin-detail-label">Wallet</span>${app.wallet_address || app.wallet || "Optional"}</div>
         </div>
         <div style="margin-top:14px;color:var(--text-secondary);font-size:13px;">${app.use_case || app.useCase || "No use case described."}</div>
       </div>
@@ -215,19 +215,19 @@ function renderAdminDashboard() {
     }
 
     list.innerHTML = rejected.map(app => `
-      <div class="resource-card" style="padding:22px 24px;margin-bottom:16px;">
+      <div class="admin-list-card">
         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">${app.organization_name || app.orgName || "Unknown organisation"}</div>
+            <div style="font-size:15px;font-weight:800;color:var(--text-primary);">${app.organization_name || app.orgName || "Unknown organisation"}</div>
             <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${app.organization_type || app.orgType || "—"} · ${app.organization_website || app.orgWebsite || "No website provided"}</div>
           </div>
-          <div style="font-size:13px;color:var(--red);font-weight:700;">Rejected</div>
+          <div class="admin-status-pill danger">Rejected</div>
         </div>
-        <div style="margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:12px;">
-          <div><strong>Contact</strong><br/>${app.contact_name || app.contactName || "-"}<br/><a href="mailto:${app.contact_email || app.contactEmail || ""}" style="color:var(--purple-mid);">${app.contact_email || app.contactEmail || "-"}</a></div>
-          <div><strong>Role</strong><br/>${app.contact_role || app.contactRole || "-"}</div>
-          <div><strong>Volume</strong><br/>${app.certificate_volume || app.volume || "-"}</div>
-          <div><strong>Wallet</strong><br/>${app.wallet_address || app.wallet || "Optional"}</div>
+        <div class="admin-detail-grid">
+          <div class="admin-detail-item"><span class="admin-detail-label">Contact</span>${app.contact_name || app.contactName || "-"}<br/><a href="mailto:${app.contact_email || app.contactEmail || ""}" style="color:var(--purple-mid);">${app.contact_email || app.contactEmail || "-"}</a></div>
+          <div class="admin-detail-item"><span class="admin-detail-label">Role</span>${app.contact_role || app.contactRole || "-"}</div>
+          <div class="admin-detail-item"><span class="admin-detail-label">Volume</span>${app.certificate_volume || app.volume || "-"}</div>
+          <div class="admin-detail-item"><span class="admin-detail-label">Wallet</span>${app.wallet_address || app.wallet || "Optional"}</div>
         </div>
       </div>
     `).join("");
@@ -242,15 +242,15 @@ function renderAdminDashboard() {
     }
 
     list.innerHTML = checks.map(item => `
-      <div class="resource-card" style="padding:22px 24px;margin-bottom:16px;">
+      <div class="admin-list-card">
         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">${item.certificate_id || item.certId || "Unknown certificate"}</div>
+            <div style="font-size:15px;font-weight:800;color:var(--text-primary);">${item.certificate_id || item.certId || "Unknown certificate"}</div>
             <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${formatDateTime(item.checked_at || item.checkedAt)}</div>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
-            <span style="font-size:13px;font-weight:700;color:${item.verification_status === "revoked" ? "var(--red)" : item.verification_status === "valid" ? "#059669" : "var(--text-secondary)"};text-transform:capitalize;">${item.verification_status || item.status || "unknown"}</span>
-            ${item.verification_status !== "revoked" ? `<button class="btn-ghost" data-action="revoke" data-id="${item.id}">Revoke</button>` : ""}
+          <div class="admin-action-row">
+            <span class="admin-status-pill ${item.verification_status === "revoked" ? "danger" : item.verification_status === "valid" ? "success" : "warning"}">${item.verification_status || item.status || "unknown"}</span>
+            ${item.verification_status !== "revoked" ? `<button class="btn-danger" data-action="revoke" data-id="${item.id}">Revoke</button>` : ""}
           </div>
         </div>
         <div style="margin-top:14px;color:var(--text-secondary);font-size:13px;">Result details: ${item.verification_message || item.message || "No details provided."}</div>
@@ -267,13 +267,13 @@ function renderAdminDashboard() {
     }
 
     list.innerHTML = revoked.map(item => `
-      <div class="resource-card" style="padding:22px 24px;margin-bottom:16px;">
+      <div class="admin-list-card">
         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">${item.certificate_id || item.certId || "Unknown certificate"}</div>
+            <div style="font-size:15px;font-weight:800;color:var(--text-primary);">${item.certificate_id || item.certId || "Unknown certificate"}</div>
             <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Revoked on ${formatDateTime(item.revoked_at || item.revokedAt)}</div>
           </div>
-          <div style="font-size:13px;color:var(--red);font-weight:700;">Revoked</div>
+          <div class="admin-status-pill danger">Revoked</div>
         </div>
         <div style="margin-top:14px;color:var(--text-secondary);font-size:13px;">${item.verification_message || item.message || "No details provided."}</div>
       </div>
@@ -289,13 +289,13 @@ function renderAdminDashboard() {
     }
 
     list.innerHTML = auditLog.map(entry => `
-      <div class="resource-card" style="padding:22px 24px;margin-bottom:16px;">
+      <div class="admin-list-card">
         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">${entry.action_type || entry.action || "Action"}</div>
+            <div style="font-size:15px;font-weight:800;color:var(--text-primary);">${entry.action_type || entry.action || "Action"}</div>
             <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${formatDateTime(entry.timestamp)}</div>
           </div>
-          <div style="font-size:13px;font-weight:700;color:${entry.status === "failed" ? "var(--red)" : "#059669"};">${entry.status || "success"}</div>
+          <div class="admin-status-pill ${entry.status === "failed" ? "danger" : "success"}">${entry.status || "success"}</div>
         </div>
         <div style="margin-top:14px;color:var(--text-secondary);font-size:13px;">${entry.error_message || "No additional details."}</div>
       </div>

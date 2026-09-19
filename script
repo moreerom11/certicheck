@@ -18,7 +18,7 @@ const FAQ_DATA = [
     category: "Verification",
     items: [
       { q: "How do I verify a certificate?",
-        a: "Enter the certificate ID or scan the QR code. Our verifier queries Solana directly and returns the authenticity result in seconds." },
+        a: "Enter the certificate ID. Our verifier queries Solana directly and returns the authenticity result in seconds." },
       { q: "Can a certificate be faked or tampered with?",
         a: "No. Each certificate is cryptographically signed by the issuer's on-chain keypair and stored as an immutable transaction. Any alteration invalidates the signature." },
       { q: "What information is publicly visible on-chain?",
@@ -70,7 +70,7 @@ const FAQ_DATA = [
   },
 ];
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = `${window.location.origin}/api`;
 
 const RESOURCES_DATA = [
   { icon: "📄", title: "Documentation",         desc: "Full API reference, SDK docs, and integration guides.",             tag: "Docs" },
@@ -126,6 +126,20 @@ function clearAuthSession() {
   localStorage.removeItem("certicheck_user");
   currentUser = null;
   updateAuthUi();
+}
+
+function getConnectedWalletAddress() {
+  const direct = localStorage.getItem('certicheck_wallet_address');
+  if (direct) return direct;
+  const storedUser = getStoredUser();
+  return storedUser?.wallet || '';
+}
+
+function persistWalletAddress(value) {
+  const wallet = value ? String(value).trim() : '';
+  if (wallet) localStorage.setItem('certicheck_wallet_address', wallet);
+  else localStorage.removeItem('certicheck_wallet_address');
+  return wallet;
 }
 
 function updateAuthUi() {
@@ -338,6 +352,7 @@ function renderRoleLandingHome() {
       </div>
     `).join('');
 
+    const walletAddress = getConnectedWalletAddress();
     document.getElementById('roleHomeActions').innerHTML = `
       <a href="admin.html" class="btn-primary" style="display:inline-flex;align-items:center;justify-content:center;">Open full Admin Dashboard</a>
       <button class="btn-ghost" data-page="issuer">Issue</button>
@@ -352,6 +367,7 @@ function renderRoleLandingHome() {
           <div><strong>API:</strong> online</div>
           <div><strong>Pinata:</strong> connected</div>
           <div><strong>Solana:</strong> enabled</div>
+          <div><strong>Wallet:</strong> ${walletAddress ? walletAddress.slice(0, 8) + '…' : 'Not connected'}</div>
           <div><strong>Timestamp:</strong> ${new Date().toLocaleString()}</div>
         </div>
       </div>
@@ -382,6 +398,11 @@ function renderRoleLandingHome() {
 
     document.getElementById('roleHomeStats').innerHTML = statsHtml;
 
+    const walletAddress = getConnectedWalletAddress();
+    const walletStatusMarkup = walletAddress
+      ? `<div class="wallet-chip">Wallet connected</div>`
+      : `<div class="wallet-chip offline">Wallet not connected</div>`;
+
     document.getElementById('roleHomeActions').innerHTML = `
       <div class="issuer-dashboard-shell">
         <aside class="issuer-profile-panel">
@@ -393,13 +414,15 @@ function renderRoleLandingHome() {
             <div class="issuer-meta-row"><span>Email</span><strong>issuer@oau.edu.ng</strong></div>
             <div class="issuer-meta-row"><span>Institution</span><strong>Obafemi Awolowo University</strong></div>
             <div class="issuer-meta-row"><span>Role</span><strong>issuer</strong></div>
+            <div class="issuer-meta-row"><span>Wallet</span><strong>${walletAddress ? walletAddress.slice(0, 12) + '…' : 'Not connected'}</strong></div>
             <div class="issuer-meta-row"><span>Access</span><strong>Full issuer access</strong></div>
           </div>
 
           <div class="issuer-side-actions">
+            ${walletStatusMarkup}
             <button class="btn-primary btn-block" data-page="issuer">+ Issue new</button>
             <button class="btn-ghost btn-block" onclick="renderRoleLandingHome()">Refresh</button>
-            <button class="btn-ghost btn-block" onclick="localStorage.removeItem('certicheck_auth_token'); localStorage.removeItem('certicheck_user'); currentUser = null; updateAuthUi(); navigate('home');">Sign out</button>
+            <button class="btn-ghost btn-block" onclick="localStorage.removeItem('certicheck_auth_token'); localStorage.removeItem('certicheck_user'); localStorage.removeItem('certicheck_wallet_address'); currentUser = null; updateAuthUi(); navigate('home');">Sign out</button>
           </div>
         </aside>
 
@@ -558,46 +581,6 @@ async function renderVerifyResult(response) {
     </div>
   `;
 
-  // Add QR code toggle for the certificate ID so users can quickly share/scan
-  const qrContainerHtml = `<div style="margin-top:12px"><button id="showQrBtn" class="btn-ghost">Show QR</button><div id="verifyQrWrap" style="margin-top:12px;display:none"></div></div>`;
-  resultEl.insertAdjacentHTML('beforeend', qrContainerHtml);
-  const showBtn = document.getElementById('showQrBtn');
-  const qrWrap = document.getElementById('verifyQrWrap');
-  showBtn?.addEventListener('click', async () => {
-    if (!qrWrap) return;
-    if (qrWrap.innerHTML) {
-      qrWrap.innerHTML = '';
-      qrWrap.style.display = 'none';
-      showBtn.textContent = 'Show QR';
-      return;
-    }
-
-    const certId = certificate.certificate_id || certificate.certificateId || '';
-    if (!certId) {
-      qrWrap.innerHTML = '<div class="alert alert-error">No certificate ID available for QR</div>';
-      qrWrap.style.display = 'block';
-      return;
-    }
-
-    if (window.QRCode && typeof QRCode.toDataURL === 'function') {
-      try {
-        const imgData = await QRCode.toDataURL(certId, { margin: 2, width: 220 });
-        qrWrap.innerHTML = `<div style="display:flex;gap:12px;align-items:center"><div><img src="${imgData}" alt="QR code for ${certId}" style="width:160px;height:160px;border-radius:8px;border:1px solid rgba(0,0,0,0.04)"/></div><div style="font-size:13px;color:var(--text-secondary)">Scan to verify: <strong style="font-family:var(--font-mono)">${certId}</strong></div></div>`;
-        qrWrap.style.display = 'block';
-        showBtn.textContent = 'Hide QR';
-      } catch (e) {
-        qrWrap.innerHTML = '<div class="alert alert-error">QR generation failed</div>';
-        qrWrap.style.display = 'block';
-      }
-    } else {
-      qrWrap.innerHTML = '<div class="alert alert-info">QR library not available</div>';
-      qrWrap.style.display = 'block';
-    }
-  });
-
-  // If html QR library available, show a small scanner placeholder
-  const scannerEl = document.getElementById('qrScanner');
-  if (scannerEl) scannerEl.style.display = 'none';
 }
 
 async function verifyCertificate() {
@@ -643,7 +626,6 @@ document.addEventListener("DOMContentLoaded", () => {
   initAuthPageForms(currentPage);
 
   document.getElementById("verifyBtn")?.addEventListener("click", verifyCertificate);
-  document.getElementById('scanQrBtn')?.addEventListener('click', startQrScanner);
   document.querySelectorAll(".code-inline[data-demo]").forEach(code => {
     code.addEventListener("click", () => {
       const value = code.dataset.demo;
@@ -978,14 +960,23 @@ function initIssuerDashboard() {
         const resp = await window.solana.connect();
         const pub = resp?.publicKey?.toString();
         if (pub) {
+          persistWalletAddress(pub);
           walletBadge.textContent = pub;
           const wInput = document.getElementById('issuerWallet');
           if (wInput) wInput.value = pub;
+          renderRoleLandingHome();
         }
       } catch (err) {
         console.warn('Wallet connect failed', err?.message || err);
       }
     });
+  }
+
+  const existingWallet = getConnectedWalletAddress();
+  if (existingWallet && walletBadge) {
+    walletBadge.textContent = existingWallet;
+    const wInput = document.getElementById('issuerWallet');
+    if (wInput) wInput.value = existingWallet;
   }
 
   button.onclick = async () => {
@@ -1181,17 +1172,6 @@ function initIssuerDashboard() {
           </div>
         </div>`;
 
-      // Generate QR code for the issued certificate ID if QR lib present
-      try {
-        if (window.QRCode && certificateId) {
-          const imgData = await QRCode.toDataURL(certificateId, { margin: 2, width: 220 });
-          const qrWrap = document.createElement('div');
-          qrWrap.style.marginTop = '12px';
-          qrWrap.innerHTML = `<div style="display:flex;gap:12px;align-items:center"><div><img src="${imgData}" alt="QR code" style="width:110px;height:110px;border-radius:8px;border:1px solid rgba(0,0,0,0.04)"/></div><div style="font-size:13px;color:var(--text-secondary)">Scan to verify: <strong style="font-family:var(--font-mono)">${certificateId}</strong></div></div>`;
-          resultEl.querySelector('.issuer-result-card')?.appendChild(qrWrap);
-        }
-      } catch (e) { /* ignore QR failures */ }
-
       // Refresh issuer list view if visible
       try { renderIssuerCertificatesList(); } catch (e) {}
     } catch (err) {
@@ -1347,82 +1327,6 @@ function initHolderDashboard() {
     console.warn('Failed to render holder dashboard certificates:', e);
     listEl.innerHTML = '<div>Error loading certificates.</div>';
   }
-}
-
-// QR scanner using Html5Qrcode
-let _html5QrcodeScanner = null;
-async function startQrScanner() {
-  if (typeof Html5Qrcode === 'undefined') {
-    const resultEl = document.getElementById('verifyResult');
-    if (resultEl) {
-      resultEl.innerHTML = '<div class="alert alert-info">QR scanning is unavailable in this environment. Please enter the certificate ID manually.</div>';
-    }
-    return;
-  }
-
-  // create scanner container if missing
-  let scannerRoot = document.getElementById('qrScanner');
-  if (!scannerRoot) {
-    scannerRoot = document.createElement('div');
-    scannerRoot.id = 'qrScanner';
-    scannerRoot.style.position = 'fixed';
-    scannerRoot.style.left = '50%';
-    scannerRoot.style.top = '20%';
-    scannerRoot.style.transform = 'translateX(-50%)';
-    scannerRoot.style.zIndex = '9999';
-    scannerRoot.style.background = 'white';
-    scannerRoot.style.padding = '12px';
-    scannerRoot.style.borderRadius = '8px';
-    scannerRoot.style.boxShadow = '0 8px 30px rgba(0,0,0,0.12)';
-    document.body.appendChild(scannerRoot);
-  }
-
-  scannerRoot.innerHTML = '<div id="qrScannerRegion" style="width:320px;height:260px"></div><div style="margin-top:8px;text-align:right"><button id="qrCancelBtn" class="btn-ghost">Cancel</button></div>';
-
-  const regionId = 'qrScannerRegion';
-  const html5Qr = new Html5Qrcode(regionId);
-  _html5QrcodeScanner = html5Qr;
-
-  const config = { fps: 10, qrbox: { width: 260, height: 200 } };
-
-  const onScanSuccess = (decodedText, decodedResult) => {
-    try {
-      // stop scanner
-      html5Qr.stop().then(() => {
-        document.getElementById('qrScanner')?.remove();
-        _html5QrcodeScanner = null;
-      }).catch(() => {});
-
-      // populate input and verify
-      const input = document.getElementById('certIdInput');
-      if (input) {
-        input.value = decodedText;
-        verifyCertificate();
-      }
-    } catch (e) {
-      console.warn('QR scan handler error', e);
-    }
-  };
-
-  const onScanFailure = (error) => {
-    // console.debug('QR scan failure', error);
-  };
-
-  html5Qr.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure).catch(err => {
-    console.warn('Unable to start QR scanner:', err);
-    document.getElementById('qrScanner')?.remove();
-  });
-
-  document.getElementById('qrCancelBtn')?.addEventListener('click', () => {
-    if (_html5QrcodeScanner) {
-      _html5QrcodeScanner.stop().finally(() => {
-        document.getElementById('qrScanner')?.remove();
-        _html5QrcodeScanner = null;
-      });
-    } else {
-      document.getElementById('qrScanner')?.remove();
-    }
-  });
 }
 
 function applyTheme(theme) {

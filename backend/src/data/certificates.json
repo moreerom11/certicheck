@@ -185,5 +185,22 @@
     "revoked_at": null,
     "revoked_by": null,
     "created_by": 1
+  },
+  {
+    "id": 12,
+    "certificate_id": "LIVE-TEST-2026-001",
+    "certificate_type": "Degree Certificate",
+    "verification_status": "valid",
+    "verification_message": "Issued via Certicheck",
+    "blockchain_hash": "e97060224c8f8dd5d2ec21b688c2cbfdb9d01fe5cfc2a9d0af99207d9307f716",
+    "blockchain_transaction_id": null,
+    "holder_name": "Aisha Bello",
+    "holder_email": "aisha@example.com",
+    "issuer_name": "OAU Registry",
+    "issuer_wallet": null,
+    "checked_at": "2026-09-19T08:48:52.518Z",
+    "revoked_at": null,
+    "revoked_by": null,
+    "created_by": 4
   }
 ]
