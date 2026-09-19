@@ -1759,9 +1759,170 @@ body.dark .btn-toggle:hover {
   .stat-divider { display: none; }
   .stat { padding: 0; }
 }
+
+@media (max-width: 680px) {
+  #navbar {
+    padding: 0 14px;
+    min-height: 64px;
+    gap: 10px;
+  }
+
+  .nav-logo {
+    gap: 8px;
+  }
+
+  .nav-brand {
+    font-size: 15px;
+  }
+
+  .nav-actions {
+    gap: 8px;
+  }
+
+  .nav-actions .btn-ghost,
+  .nav-actions .btn-outline,
+  .nav-actions .btn-primary {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .page-wrap {
+    padding: 90px 18px 48px;
+  }
+
+  .hero {
+    padding: 90px 18px 42px;
+  }
+
+  .hero-grid-bg {
+    opacity: 0.4;
+  }
+
+  .hero-content {
+    max-width: none;
+  }
+
+  .hero-title {
+    font-size: clamp(34px, 13vw, 56px);
+  }
+
+  .hero-ctas,
+  .hero-entry-points,
+  .hero-stats {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .entry-card {
+    width: 100%;
+    min-height: auto;
+  }
+
+  .form-card {
+    padding: 20px 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-actions > * {
+    width: 100%;
+  }
+
+  .issuer-dashboard-shell {
+    grid-template-columns: 1fr !important;
+  }
+
+  .issuer-profile-panel,
+  .issuer-workspace-panel,
+  .admin-list-card,
+  .resource-card,
+  .verify-card {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .issuer-topbar,
+  .issuer-list-header,
+  .admin-dashboard-shell {
+    display: block;
+  }
+
+  .issuer-stat-grid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
+  .issuer-action-row,
+  .issuer-list-tools,
+  .admin-action-row {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .issuer-action-row button,
+  .issuer-list-tools input,
+  .issuer-list-tools select,
+  .admin-action-row button {
+    flex: 1 1 auto;
+  }
+
+  .issuer-table-wrap {
+    border-radius: 12px;
+  }
+
+  .issuer-table th,
+  .issuer-table td {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  .role-stat {
+    padding: 16px 14px;
+  }
+
+  .role-stat-value {
+    font-size: 26px;
+  }
+
+  .site-footer {
+    padding: 18px 18px 26px;
+  }
+
+  .footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
 @media (max-width: 540px) {
   .tps-grid { grid-template-columns: 1fr; }
   .tps-main-card { grid-column: span 1; }
   .verify-input-row { flex-direction: column; }
   .features-inner { grid-template-columns: 1fr; }
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .stat {
+    min-width: 0;
+  }
+  .issuer-stat-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .page-tag {
+    font-size: 10px;
+  }
+  .btn-primary,
+  .btn-outline,
+  .btn-ghost {
+    width: 100%;
+    justify-content: center;
+  }
 }

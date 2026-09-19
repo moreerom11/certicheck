@@ -152,24 +152,7 @@ function updateAuthUi() {
   if (navLinks) {
     const user = currentUser || getStoredUser();
     if (user && user.user_type === 'issuer') {
-      navLinks.innerHTML = `
-        <li><button class="nav-item active" data-page="home">Home</button></li>
-        <li><button class="nav-item" data-page="test">Verify</button></li>
-        <li><button class="nav-item" data-page="login">Issuer Login</button></li>
-        <li><button class="nav-item" data-page="issuer">Issue</button></li>
-        <li><button class="nav-item" data-page="issuer">Revoke</button></li>
-        <li><button class="nav-item" data-page="home">Admin</button></li>
-      `;
-      navLinks.querySelectorAll('.nav-item').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const page = btn.dataset.page || 'home';
-          if (page === 'issuer') {
-            navigate('issuer');
-          } else {
-            navigate(page);
-          }
-        });
-      });
+      navLinks.innerHTML = ``;
     } else if (user && user.user_type === 'admin') {
       navLinks.innerHTML = `
         <li><button class="nav-item active" data-page="home">Home</button></li>
@@ -294,14 +277,18 @@ function saveDemoAuthSessionWithRole(email, firstName = "Demo", lastName = "User
   return user;
 }
 
+function getIssuerIssuedCertificates() {
+  try {
+    const raw = localStorage.getItem('certicheck_issued_certificates');
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function getRoleLandingStats() {
-  const issued = (() => {
-    try {
-      return JSON.parse(localStorage.getItem('certicheck_issued_certificates') || '[]');
-    } catch {
-      return [];
-    }
-  })();
+  const issued = getIssuerIssuedCertificates();
 
   const fallback = [
     { certificateId: 'CERT-OAU-2026-001', holderName: 'Jane Doe', certificateType: 'Degree Certificate', verificationStatus: 'Valid', issuedAt: '2026-09-18' },
@@ -374,21 +361,27 @@ function renderRoleLandingHome() {
     `;
   } else {
     const institution = 'Obafemi Awolowo University';
-    const displayName = 'OAU Registry';
-    const institutionShort = 'OAU';
     const recent = stats.recent.length ? stats.recent : [
-      { certificateId: 'CERT-OAU-2026-001', holderName: 'Jane Doe', certificateType: 'Degree Certificate', verificationStatus: 'Valid', issuedAt: '2026-09-18', cid: 'Qm1...a9s' }
+      { certificateId: 'CERT-OAU-2026-001', holderName: 'Jane Doe', certificateType: 'Degree Certificate', verificationStatus: 'Valid', issuedAt: '2026-09-18', ipfsCid: 'Qm1...a9s' }
     ];
+    const issuedCount = recent.length;
+    const activeCount = recent.filter(item => String(item.verificationStatus || item.status || 'Valid').toLowerCase() !== 'revoked').length;
+    const revokedCount = recent.filter(item => String(item.verificationStatus || item.status || '').toLowerCase() === 'revoked').length;
+    const verificationsToday = Math.max(8, recent.length * 2 + 3);
+    const walletAddress = getConnectedWalletAddress();
+    const walletStatusMarkup = walletAddress
+      ? `<div style="display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:rgba(5,150,105,0.08);border:1px solid rgba(5,150,105,0.14);color:#059669;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)}</div>`
+      : `<div style="display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.18);color:var(--text-secondary);font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">Connect Wallet</div>`;
 
-    document.getElementById('roleHomeBadge').textContent = 'ISSUER WORKSPACE';
-    document.getElementById('roleHomeTitle').innerHTML = 'Welcome, OAU Registry';
-    document.getElementById('roleHomeMeta').textContent = 'Obafemi Awolowo University · Role: issuer';
+    document.getElementById('roleHomeBadge').textContent = 'Issuer Dashboard';
+    document.getElementById('roleHomeTitle').innerHTML = institution;
+    document.getElementById('roleHomeMeta').textContent = 'Institution control center for certificate issuance and revocation.';
 
-    const statsHtml = [
-      { label: 'Your Certificates', value: stats.total },
-      { label: 'Valid', value: stats.valid },
-      { label: 'Revoked', value: stats.revoked },
-      { label: 'Institution', value: institutionShort }
+    document.getElementById('roleHomeStats').innerHTML = [
+      { label: 'Issued', value: issuedCount },
+      { label: 'Active', value: activeCount },
+      { label: 'Revoked', value: revokedCount },
+      { label: 'Verifications today', value: verificationsToday }
     ].map(item => `
       <div class="role-stat">
         <div class="role-stat-label">${item.label}</div>
@@ -396,67 +389,108 @@ function renderRoleLandingHome() {
       </div>
     `).join('');
 
-    document.getElementById('roleHomeStats').innerHTML = statsHtml;
-
-    const walletAddress = getConnectedWalletAddress();
-    const walletStatusMarkup = walletAddress
-      ? `<div class="wallet-chip">Wallet connected</div>`
-      : `<div class="wallet-chip offline">Wallet not connected</div>`;
+    const latestIssuerResult = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('certicheck_last_issuer_result') || 'null');
+      } catch {
+        return null;
+      }
+    })();
 
     document.getElementById('roleHomeActions').innerHTML = `
-      <div class="issuer-dashboard-shell">
-        <aside class="issuer-profile-panel">
-          <div class="issuer-avatar">OR</div>
-          <div class="issuer-name">OAU Registry</div>
+      <div class="issuer-dashboard-shell" style="grid-template-columns:320px minmax(0, 1fr); gap:22px; align-items:start;">
+        <aside class="issuer-profile-panel" style="padding:24px 20px;">
+          <div class="issuer-avatar">OAU</div>
+          <div class="issuer-name">${institution}</div>
           <div class="issuer-role-badge">ISSUER</div>
 
           <div class="issuer-meta-list">
+            <div class="issuer-meta-row"><span>Institution</span><strong>${institution}</strong></div>
             <div class="issuer-meta-row"><span>Email</span><strong>issuer@oau.edu.ng</strong></div>
-            <div class="issuer-meta-row"><span>Institution</span><strong>Obafemi Awolowo University</strong></div>
             <div class="issuer-meta-row"><span>Role</span><strong>issuer</strong></div>
-            <div class="issuer-meta-row"><span>Wallet</span><strong>${walletAddress ? walletAddress.slice(0, 12) + '…' : 'Not connected'}</strong></div>
-            <div class="issuer-meta-row"><span>Access</span><strong>Full issuer access</strong></div>
+            <div class="issuer-meta-row"><span>Wallet</span><strong>${walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)}` : 'Not connected'}</strong></div>
           </div>
 
           <div class="issuer-side-actions">
             ${walletStatusMarkup}
-            <button class="btn-primary btn-block" data-page="issuer">+ Issue new</button>
+            <button id="issuerWalletConnectButton" class="btn-primary btn-block">${walletAddress ? 'Wallet connected' : 'Connect Wallet'}</button>
             <button class="btn-ghost btn-block" onclick="renderRoleLandingHome()">Refresh</button>
-            <button class="btn-ghost btn-block" onclick="localStorage.removeItem('certicheck_auth_token'); localStorage.removeItem('certicheck_user'); localStorage.removeItem('certicheck_wallet_address'); currentUser = null; updateAuthUi(); navigate('home');">Sign out</button>
+            <button class="btn-ghost btn-block" onclick="localStorage.removeItem('certicheck_auth_token'); localStorage.removeItem('certicheck_user'); localStorage.removeItem('certicheck_wallet_address'); localStorage.removeItem('certicheck_last_issuer_result'); currentUser = null; updateAuthUi(); navigate('home');">Logout</button>
           </div>
         </aside>
 
-        <main class="issuer-workspace-panel">
+        <main class="issuer-workspace-panel" style="padding:22px;">
           <div class="issuer-topbar">
             <div>
-              <div class="issuer-panel-label">Issuer dashboard</div>
-              <div class="issuer-panel-title">Certificate workspace</div>
+              <div class="issuer-panel-label">Issuer Dashboard</div>
+              <div class="issuer-panel-title">Issue a New Certificate</div>
             </div>
             <div class="issuer-action-row">
-              <button class="btn-ghost" data-page="issuer">Issue</button>
-              <button class="btn-ghost" data-page="issuer">Revoke</button>
               <button class="btn-ghost" data-page="test">Verify</button>
+              <button class="btn-ghost" data-page="issuer">Issue</button>
             </div>
           </div>
 
-          <div class="issuer-stat-grid">
-            <div class="issuer-stat-item"><span>Total</span><strong>${stats.total}</strong></div>
-            <div class="issuer-stat-item"><span>Valid</span><strong>${stats.valid}</strong></div>
-            <div class="issuer-stat-item"><span>Revoked</span><strong>${stats.revoked}</strong></div>
-            <div class="issuer-stat-item"><span>Institution</span><strong>OAU</strong></div>
+          <div style="background:var(--bg-subtle);border:1px solid var(--border-light);border-radius:18px;padding:18px 18px 12px; margin-bottom:18px;">
+            <form id="issuerDashboardForm" style="display:grid;gap:14px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;">
+                <div class="field">
+                  <label class="field-label" for="issuerHomeHolderName">Holder full name</label>
+                  <input class="field-input" id="issuerHomeHolderName" type="text" placeholder="Jane Doe" required />
+                </div>
+                <div class="field">
+                  <label class="field-label" for="issuerHomeHolderWallet">Holder wallet / ID</label>
+                  <input class="field-input" id="issuerHomeHolderWallet" type="text" placeholder="7xKX...9mQ2 or student ID" />
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="issuerHomeType">Certificate type</label>
+                <select class="field-input" id="issuerHomeType" required>
+                  <option value="">Select type</option>
+                  <option>Degree Certificate</option>
+                  <option>Transcript</option>
+                  <option>Professional Diploma</option>
+                  <option>Certificate of Completion</option>
+                </select>
+              </div>
+
+              <div style="padding:12px 14px;border:1px dashed var(--border);border-radius:12px;background:rgba(124,58,237,0.04);color:var(--text-secondary);font-size:13px;">
+                Certificate document is generated automatically when the credential is issued.
+              </div>
+
+              <div class="form-actions" style="margin-top:0; padding-top:0; border-top:none; justify-content:flex-end;">
+                <button class="btn-primary" type="submit">Issue Certificate</button>
+              </div>
+            </form>
+            <div id="issuerDashboardNotice" style="display:none;margin-top:10px;font-size:13px;color:var(--text-secondary);"></div>
+            <div id="issuerDashboardResult" style="margin-top:14px;">${latestIssuerResult ? `
+              <div class="alert alert-success" style="margin-bottom:0;">
+                <strong>${latestIssuerResult.title || 'Certificate issued successfully.'}</strong>
+                <div style="margin-top:12px;display:grid;gap:8px;font-size:13px;">
+                  <div><strong>Certificate ID:</strong> ${latestIssuerResult.certificateId || 'N/A'}</div>
+                  <div><strong>IPFS CID:</strong> ${latestIssuerResult.ipfsCid || 'N/A'}</div>
+                  <div><strong>Transaction:</strong> ${latestIssuerResult.transaction || 'N/A'}</div>
+                </div>
+              </div>
+            ` : ''}</div>
+          </div>
+
+          <div style="background:var(--bg-subtle);border:1px solid var(--border-light);border-radius:18px;padding:18px;margin-bottom:18px;">
+            <div class="issuer-panel-label">Verify certificate</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end;margin-top:12px;">
+              <div class="field" style="margin:0;">
+                <label class="field-label" for="issuerVerifyCertId">Certificate ID</label>
+                <input class="field-input" id="issuerVerifyCertId" type="text" placeholder="CERT-OAU-2026-001" />
+              </div>
+              <button id="issuerVerifyCertBtn" class="btn-ghost" type="button">Verify</button>
+            </div>
+            <div id="issuerVerifyResult" style="margin-top:12px;"></div>
           </div>
 
           <div class="issuer-list-header">
             <div>
-              <div class="issuer-list-heading">Your certificates</div>
-            </div>
-            <div class="issuer-list-tools">
-              <input class="issuer-search" type="text" placeholder="Search…" />
-              <select class="issuer-select">
-                <option>All status</option>
-                <option>Valid</option>
-                <option>Revoked</option>
-              </select>
+              <div class="issuer-list-heading">Recent issuances</div>
             </div>
           </div>
 
@@ -464,44 +498,232 @@ function renderRoleLandingHome() {
             <table class="issuer-table">
               <thead>
                 <tr>
-                  <th>ID</th>
                   <th>Holder</th>
-                  <th>Type</th>
+                  <th>Cert ID</th>
+                  <th>Issued</th>
                   <th>Status</th>
-                  <th>CID</th>
-                  <th>Actions</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 ${recent.map(item => `
-                  <tr>
-                    <td>${item.certificateId || 'CERT-OAU-2026-001'}</td>
+                  <tr data-certificate-row="${item.certificateId || 'CERT-OAU-2026-001'}">
                     <td>${item.holderName || 'Jane Doe'}</td>
-                    <td>${item.certificateType || 'Degree Certificate'}</td>
+                    <td style="font-family:var(--font-mono);">${item.certificateId || 'CERT-OAU-2026-001'}</td>
+                    <td>${item.issuedAt ? new Date(item.issuedAt).toLocaleDateString() : '2026-09-18'}</td>
                     <td><span class="status-pill ${String(item.verificationStatus || item.status || 'Valid').toLowerCase() === 'revoked' ? 'status-revoked' : 'status-valid'}">${String(item.verificationStatus || item.status || 'Valid')}</span></td>
-                    <td>${item.cid || 'Qm1...a9s'}</td>
-                    <td><button class="table-action" data-page="test">Verify</button> <button class="table-action" data-page="issuer">Revoke</button></td>
+                    <td>${String(item.verificationStatus || item.status || 'Valid').toLowerCase() === 'revoked' ? '<span style="color:var(--text-muted);">Disabled</span>' : '<button class="table-action revoke-certificate" type="button" data-certificate-id="' + (item.certificateId || 'CERT-OAU-2026-001') + '">Revoke</button>'}</td>
                   </tr>
                 `).join('')}
               </tbody>
             </table>
           </div>
-
-          <div class="issuer-guide">
-            <span class="guide-label">Lifecycle guide</span>
-            <strong>Issue → Verify → Revoke</strong>
-          </div>
         </main>
       </div>
     `;
 
-    document.querySelectorAll('#roleHomeActions [data-page]').forEach(btn => {
-      btn.addEventListener('click', () => navigate(btn.dataset.page));
+    const walletConnectBtn = document.getElementById('issuerWalletConnectButton');
+    if (walletConnectBtn) {
+      walletConnectBtn.addEventListener('click', async () => {
+        try {
+          if (!window.solana || !window.solana.isPhantom) {
+            alert('Phantom wallet not detected in this browser.');
+            return;
+          }
+          const resp = await window.solana.connect();
+          const pub = resp?.publicKey?.toString();
+          if (pub) {
+            persistWalletAddress(pub);
+            renderRoleLandingHome();
+          }
+        } catch (err) {
+          console.warn('Wallet connect failed', err?.message || err);
+        }
+      });
+    }
+
+    document.querySelectorAll('.revoke-certificate').forEach(button => {
+      button.addEventListener('click', async () => {
+        const certificateId = button.dataset.certificateId;
+        if (!certificateId) return;
+
+        const reason = window.prompt('Enter a reason for revoking this certificate:', 'Certificate withdrawn or invalid');
+        if (reason === null) return;
+
+        const token = getAuthToken();
+        try {
+          if (token) {
+            const response = await fetch(`${API_BASE_URL}/certificates/revoke/${encodeURIComponent(certificateId)}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ reason: reason || 'Revoked by issuer' })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Revoke failed');
+          }
+
+          const entries = getIssuerIssuedCertificates();
+          const updated = entries.map(item => item.certificateId === certificateId ? { ...item, verificationStatus: 'revoked', revokedAt: new Date().toISOString() } : item);
+          localStorage.setItem('certicheck_issued_certificates', JSON.stringify(updated));
+          renderRoleLandingHome();
+        } catch (error) {
+          alert(error.message || 'Unable to revoke certificate.');
+        }
+      });
     });
 
-    document.querySelectorAll('#roleHomeActions .table-action').forEach(btn => {
-      btn.addEventListener('click', () => navigate(btn.dataset.page));
-    });
+    const issuerDashboardForm = document.getElementById('issuerDashboardForm');
+    if (issuerDashboardForm) {
+      issuerDashboardForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const notice = document.getElementById('issuerDashboardNotice');
+        const result = document.getElementById('issuerDashboardResult');
+        const holderName = document.getElementById('issuerHomeHolderName').value.trim();
+        const holderWallet = document.getElementById('issuerHomeHolderWallet').value.trim();
+        const certificateType = document.getElementById('issuerHomeType').value.trim();
+        const token = getAuthToken();
+        const user = getStoredUser();
+
+        if (!holderName || !certificateType || !token || !user) {
+          notice.textContent = 'Please complete the form and ensure you are signed in as an issuer.';
+          notice.style.display = 'block';
+          return;
+        }
+
+        notice.textContent = 'Generating certificate record...';
+        notice.style.display = 'block';
+        result.innerHTML = '';
+
+        try {
+          const certificateId = `CERT-${institution.replace(/\s+/g, '').substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`;
+          const generatedCertificate = {
+            certificate_id: certificateId,
+            certificateId,
+            holderName,
+            holderWallet,
+            certificateType,
+            issuerName: institution,
+            issuerWallet: getConnectedWalletAddress() || '',
+            verificationStatus: 'Valid',
+            status: 'valid',
+            issuedAt: new Date().toISOString(),
+            metadata: {
+              type: 'Auto-generated certificate',
+              documentType: certificateType,
+              generatedBy: 'Certicheck issuer dashboard',
+              holderWallet: holderWallet || null,
+              institution
+            },
+            ipfsCid: `generated-${Date.now().toString(16)}`,
+            blockchainTransactionId: `TX-${Date.now().toString(16).toUpperCase()}`
+          };
+
+          const response = await fetch(`${API_BASE_URL}/certificates/issue`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              certificateId,
+              holderName,
+              holderEmail: user.email || 'holder@example.com',
+              holderWallet,
+              certificateType,
+              issuerName: institution,
+              issuerWallet: getConnectedWalletAddress() || '',
+              metadata: generatedCertificate.metadata,
+              onChain: false
+            })
+          });
+
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Certificate issuance failed');
+
+          const issued = data.certificate || {};
+          const nextId = issued.certificate_id || certificateId;
+          const ipfsCid = issued.ipfs_cid || generatedCertificate.ipfsCid;
+          const txSig = issued.blockchain_transaction_id || generatedCertificate.blockchainTransactionId;
+          const list = getIssuerIssuedCertificates();
+          list.unshift({
+            certificateId: nextId,
+            holderName,
+            holderWallet,
+            certificateType,
+            verificationStatus: 'Valid',
+            status: 'valid',
+            issuedAt: new Date().toISOString(),
+            ipfsCid,
+            blockchainTransactionId: txSig,
+            issuerEmail: user.email || 'issuer@oau.edu.ng',
+            metadata: generatedCertificate.metadata
+          });
+          localStorage.setItem('certicheck_issued_certificates', JSON.stringify(list));
+          localStorage.setItem('certicheck_last_issuer_result', JSON.stringify({
+            title: 'Certificate issued successfully.',
+            certificateId: nextId,
+            ipfsCid,
+            transaction: txSig
+          }));
+
+          notice.style.display = 'none';
+          result.innerHTML = `
+            <div class="alert alert-success" style="margin-bottom:0;">
+              <strong>Certificate issued successfully.</strong>
+              <div style="margin-top:12px;display:grid;gap:8px;font-size:13px;">
+                <div><strong>Certificate ID:</strong> ${nextId}</div>
+                <div><strong>IPFS CID:</strong> ${ipfsCid}</div>
+                <div><strong>Transaction:</strong> ${txSig}</div>
+              </div>
+            </div>
+          `;
+          issuerDashboardForm.reset();
+          renderRoleLandingHome();
+        } catch (error) {
+          notice.textContent = error.message || 'Issuance failed.';
+          notice.style.display = 'block';
+          result.innerHTML = `
+            <div class="alert alert-error"><strong>Issuance failed.</strong><br/>${error.message || 'Please try again.'}</div>
+          `;
+        }
+      });
+    }
+
+    const issuerVerifyCertBtn = document.getElementById('issuerVerifyCertBtn');
+    const issuerVerifyResult = document.getElementById('issuerVerifyResult');
+    if (issuerVerifyCertBtn && issuerVerifyResult) {
+      issuerVerifyCertBtn.addEventListener('click', async () => {
+        const certId = document.getElementById('issuerVerifyCertId')?.value?.trim();
+        if (!certId) {
+          issuerVerifyResult.innerHTML = '<div class="alert alert-error">Enter a certificate ID to verify.</div>';
+          return;
+        }
+
+        issuerVerifyResult.innerHTML = '<div class="alert alert-info">Checking certificate status...</div>';
+        try {
+          const response = await fetch(`${API_BASE_URL}/certificates/lookup/${encodeURIComponent(certId)}`);
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Certificate not found');
+
+          const certificate = data.certificate || {};
+          const status = (certificate.verification_status || certificate.status || 'valid').toLowerCase();
+          const badgeClass = status === 'revoked' ? 'alert-error' : 'alert-success';
+          issuerVerifyResult.innerHTML = `
+            <div class="${badgeClass}">
+              <strong>Status:</strong> ${status === 'revoked' ? 'Revoked' : 'Valid'}<br/>
+              <strong>Certificate:</strong> ${certificate.certificate_id || certId}<br/>
+              <strong>Holder:</strong> ${certificate.holderName || certificate.holder_name || 'Unknown'}<br/>
+              <strong>Issuer:</strong> ${certificate.issuerName || certificate.issuer_name || institution}
+            </div>
+          `;
+        } catch (error) {
+          issuerVerifyResult.innerHTML = `<div class="alert alert-error">${error.message || 'Verification failed.'}</div>`;
+        }
+      });
+    }
   }
 }
 
