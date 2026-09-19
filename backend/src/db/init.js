@@ -20,20 +20,31 @@ async function initializeDatabase() {
 
     await pool.query('COMMIT');
     console.log('✓ Database initialized successfully');
+    return true;
   } catch (err) {
-    console.error('✗ Error initializing database:', err);
+    console.error('✗ Error initializing database:', err.message || err);
     try {
       await pool.query('ROLLBACK');
     } catch (rollbackErr) {
-      console.error('✗ Failed to rollback transaction:', rollbackErr);
+      console.error('✗ Failed to rollback transaction:', rollbackErr.message || rollbackErr);
     }
-    await pool.end();
-    process.exit(1);
-  } finally {
-    if (!pool.ended) {
-      await pool.end();
-    }
+    return false;
   }
 }
 
-initializeDatabase();
+if (require.main === module) {
+  initializeDatabase()
+    .then((success) => {
+      if (!success) {
+        process.exit(1);
+      }
+      return pool.end();
+    })
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error('Database bootstrap failed:', err.message || err);
+      process.exit(1);
+    });
+}
+
+module.exports = { initializeDatabase };

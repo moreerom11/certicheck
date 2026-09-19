@@ -1,0 +1,5 @@
+
+> certicheck-backend@1.0.0 setup-db
+> node src/db/init.js
+
+✓ Database initialized successfully

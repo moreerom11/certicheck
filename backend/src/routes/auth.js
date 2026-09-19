@@ -12,13 +12,32 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
-async function ensureAdminAccount() {
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@certicheck.com';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'BRBSMOKING22+';
-  const existingAdmin = await User.findByEmail(adminEmail);
+async function ensureSeededAccounts() {
+  const defaultAccounts = [
+    {
+      email: process.env.ADMIN_EMAIL || 'admin@certicheck.com',
+      password: process.env.ADMIN_PASSWORD || 'admin123',
+      firstName: 'Admin',
+      lastName: 'User',
+      userType: 'admin'
+    },
+    {
+      email: process.env.ISSUER_EMAIL || 'issuer@oau.edu.ng',
+      password: process.env.ISSUER_PASSWORD || 'issuer123',
+      firstName: 'Issuer',
+      lastName: 'User',
+      userType: 'issuer'
+    }
+  ];
 
-  if (!existingAdmin) {
-    await User.create(adminEmail, adminPassword, 'Admin', 'User', 'admin');
+  for (const account of defaultAccounts) {
+    const existingUser = await User.findByEmail(account.email);
+    if (!existingUser) {
+      await User.create(account.email, account.password, account.firstName, account.lastName, account.userType);
+      continue;
+    }
+
+    await User.updatePassword(account.email, account.password);
   }
 }
 
@@ -91,18 +110,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const isOtpVerified = await OTP.isVerified(email, 'signup');
-    if (isOtpVerified) {
-      // OTP was already verified earlier
-    } else if (!otp) {
-      return res.status(400).json({ error: 'Signup OTP is required' });
-    } else {
-      const verifiedOtp = await OTP.verify(email, otp, 'signup');
-      if (!verifiedOtp) {
-        await OTP.incrementAttempts(email, otp, 'signup');
-        return res.status(401).json({ error: 'Invalid or expired OTP' });
-      }
-    }
+    // OTP removed: allow direct registration without OTP verification
 
     const existingUser = await User.findByEmail(email);
     if (existingUser) {
@@ -244,9 +252,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
-    if (email.includes('admin') || password === process.env.ADMIN_PASSWORD || password === 'BRBSMOKING22+') {
-      await ensureAdminAccount();
-    }
+    await ensureSeededAccounts();
 
     const user = await User.verifyPassword(email, password);
     

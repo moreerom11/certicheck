@@ -45,7 +45,7 @@
     </ul>
 
     <div class="nav-actions">
-      <button id="themeToggle" class="btn-toggle" aria-label="Toggle dark mode"></button>
+      <button id="themeToggle" class="btn-toggle" aria-label="Toggle dark mode" title="Switch to dark mode"></button>
       <button class="btn-ghost" data-page="signup">Sign up</button>
       <button class="btn-ghost" data-page="login">Login</button>
     </div>
@@ -55,6 +55,23 @@
        PAGE: HOME
   ══════════════════════════════════════ -->
   <div id="page-home" class="page active">
+    <div id="roleHomePanel" class="role-workspace-shell" style="display:none;">
+      <div class="page-wrap" style="max-width:980px">
+        <div class="page-header">
+          <div id="roleHomeBadge" class="page-tag">Issuer Workspace</div>
+          <h1 id="roleHomeTitle" class="page-title">Welcome back</h1>
+          <p id="roleHomeMeta" class="page-desc">Your certificate workspace.</p>
+        </div>
+
+        <div id="roleHomeStats" class="stats-grid role-stats-grid" style="margin-top:18px;"></div>
+
+        <div class="form-card" style="margin-top:18px;">
+          <div id="roleHomeActions" class="flex-actions"></div>
+          <div id="roleHomeSystem" style="margin-top:18px;"></div>
+        </div>
+      </div>
+    </div>
+
     <section class="hero">
       <div class="hero-grid-bg"></div>
 
@@ -69,17 +86,17 @@
 
         <div class="hero-ctas hero-entry-points">
           <div class="entry-card">
-            <div class="entry-title">Verify a certificate</div>
+            <div class="entry-title"></div>
             <div class="entry-actions"><button id="homeVerifyBtn" class="btn-primary" data-page="test">Verify now</button></div>
           </div>
 
           <div class="entry-card">
-            <div class="entry-title">I'm a graduate</div>
+            <div class="entry-title"></div>
             <div class="entry-actions"><button id="homeGraduateBtn" class="btn-outline" data-page="signup">Sign in / Sign up</button></div>
           </div>
 
           <div class="entry-card">
-            <div class="entry-title">I'm an institution</div>
+            <div class="entry-title"></div>
             <div class="entry-actions"><button id="homeIssuerBtn" class="btn-outline" data-page="apply">Apply as issuer</button></div>
           </div>
         </div>
@@ -320,23 +337,23 @@
       <div class="form-card">
         <div class="field">
           <label class="field-label" for="signupEmail">Email</label>
-          <input class="field-input" id="signupEmail" type="email" placeholder="your@email.com"/>
+          <input class="field-input" id="signupEmail" name="email" type="email" autocomplete="email" placeholder="your@email.com"/>
         </div>
         <div class="field">
           <label class="field-label" for="signupFirstName">First Name</label>
-          <input class="field-input" id="signupFirstName" type="text" placeholder="Jane"/>
+          <input class="field-input" id="signupFirstName" name="given-name" type="text" autocomplete="given-name" placeholder="Jane"/>
         </div>
         <div class="field">
           <label class="field-label" for="signupLastName">Last Name</label>
-          <input class="field-input" id="signupLastName" type="text" placeholder="Doe"/>
+          <input class="field-input" id="signupLastName" name="family-name" type="text" autocomplete="family-name" placeholder="Doe"/>
         </div>
         <div class="field">
           <label class="field-label" for="signupPassword">Password</label>
-          <input class="field-input" id="signupPassword" type="password" placeholder="••••••••"/>
+          <input class="field-input" id="signupPassword" name="new-password" type="password" autocomplete="new-password" placeholder="••••••••"/>
         </div>
         <div class="field">
           <label class="field-label" for="signupConfirmPassword">Confirm Password</label>
-          <input class="field-input" id="signupConfirmPassword" type="password" placeholder="••••••••"/>
+          <input class="field-input" id="signupConfirmPassword" name="new-password" type="password" autocomplete="new-password" placeholder="••••••••"/>
         </div>
         <div id="signupError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
         <button class="btn-primary" id="signupBtn" style="width:100%">Send OTP</button>
@@ -384,11 +401,11 @@
       <div class="form-card">
         <div class="field">
           <label class="field-label" for="loginEmail">Email</label>
-          <input class="field-input" id="loginEmail" type="email" autocomplete="email" placeholder="your@email.com"/>
+          <input class="field-input" id="loginEmail" name="email" type="email" autocomplete="email" placeholder="your@email.com"/>
         </div>
         <div class="field">
           <label class="field-label" for="loginPassword">Password</label>
-          <input class="field-input" id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••"/>
+          <input class="field-input" id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="••••••••"/>
         </div>
         <div class="field" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <input id="loginRemember" type="checkbox" style="width:16px;height:16px;" />
@@ -423,7 +440,7 @@
       <div class="form-card">
         <div class="field">
           <label class="field-label" for="forgotEmail">Email</label>
-          <input class="field-input" id="forgotEmail" type="email" placeholder="your@email.com"/>
+          <input class="field-input" id="forgotEmail" name="email" type="email" autocomplete="email" placeholder="your@email.com"/>
         </div>
         <div id="forgotError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
         <button class="btn-primary" id="forgotBtn" style="width:100%">Send Reset Code</button>
@@ -451,11 +468,11 @@
         </div>
         <div class="field">
           <label class="field-label" for="newPassword">New Password</label>
-          <input class="field-input" id="newPassword" type="password" placeholder="••••••••"/>
+          <input class="field-input" id="newPassword" name="new-password" type="password" autocomplete="new-password" placeholder="••••••••"/>
         </div>
         <div class="field">
           <label class="field-label" for="confirmNewPassword">Confirm Password</label>
-          <input class="field-input" id="confirmNewPassword" type="password" placeholder="••••••••"/>
+          <input class="field-input" id="confirmNewPassword" name="new-password" type="password" autocomplete="new-password" placeholder="••••••••"/>
         </div>
         <div id="resetError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
         <button class="btn-primary" id="resetPasswordBtn" style="width:100%">Reset Password</button>
@@ -515,7 +532,8 @@
           </div>
           <div class="field">
             <label class="field-label" for="contactEmail">Work Email</label>
-            <input class="field-input" id="contactEmail" placeholder="jane@organisation.com" type="email"/>
+            <input class="field-input" id="contactEmail" placeholder="jane@organisation.com" type="email" autocomplete="email"/>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">Hint: use an organisation email (e.g. <em>@certicheck.com</em>)</div>
           </div>
           <div class="field">
             <label class="field-label" for="contactRole">Role / Title</label>
@@ -649,7 +667,6 @@
       <div class="verify-input-row">
         <input class="field-input font-mono" id="certIdInput" placeholder="e.g. CERT-SOL-2024-00418" type="text" value="CERT-SOL-2026-001"/>
         <button class="btn-primary" id="verifyBtn">Verify →</button>
-        <button class="btn-ghost" id="scanQrBtn" style="margin-left:8px">Scan QR</button>
       </div>
 
       <div id="verifyResult"></div>
@@ -702,8 +719,5 @@
 
   <script src="https://unpkg.com/@solana/web3.js@1.90.0/lib/index.iife.min.js"></script>
   <script src="script"></script>
-  <!-- QR libraries: qrcode generator and html5 qr scanner -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-  <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
 </body>
 </html>

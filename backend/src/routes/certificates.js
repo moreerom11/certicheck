@@ -307,22 +307,21 @@ router.post('/issue-client-signed', verifyToken, verifyIssuer, async (req, res) 
 router.get('/lookup/:certificateId', async (req, res) => {
   try {
     const { certificateId } = req.params;
-    if (process.env.SOLANA_ENABLE === 'true' && process.env.CERTIFICATE_PROGRAM_ID) {
-      try {
-        const onChainCertificate = await lookupCertificateOnChain(certificateId);
-        if (onChainCertificate) {
-          return res.json({
-            success: true,
-            certificate: onChainCertificate,
-            status: onChainCertificate.verification_status,
-            onChain: true,
-            blockchainTransactionStatus: null,
-            verifiedAt: new Date(onChainCertificate.issued_at * 1000).toISOString()
-          });
-        }
-      } catch (chainErr) {
-        console.warn('On-chain lookup failed, falling back to local/DB:', chainErr.message);
+
+    try {
+      const onChainCertificate = await lookupCertificateOnChain(certificateId);
+      if (onChainCertificate) {
+        return res.json({
+          success: true,
+          certificate: onChainCertificate,
+          status: onChainCertificate.verification_status,
+          onChain: true,
+          blockchainTransactionStatus: null,
+          verifiedAt: new Date(onChainCertificate.issued_at * 1000).toISOString()
+        });
       }
+    } catch (chainErr) {
+      console.warn('On-chain lookup failed, falling back to local/DB:', chainErr.message);
     }
 
     const demoCertificate = getDemoCertificate(certificateId);

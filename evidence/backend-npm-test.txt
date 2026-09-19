@@ -1,0 +1,22 @@
+
+> certicheck-backend@1.0.0 test
+> node --test tests/*.test.js
+
+DEBUG issue body {"certificateId":"CERT-API-001","holderName":"Alice Example","holderEmail":"alice@example.com","certificateType":"API Integration Test","issuerName":"Certicheck Test Issuer","issuerWallet":"demo-wallet","issueOnChain":false}
+Certificate issuance transaction failed, recording local/IPFS only: Non-base58 character
+On-chain revoke failed, continuing with local revocation only: Simulation failed. 
+Message: Transaction simulation failed: Attempt to load a program that does not exist. 
+Logs: 
+[]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+✔ backend certificate issue, lookup, and revoke API flow (1281.140837ms)
+✔ issues, looks up, and revokes a certificate (2.27297ms)
+✔ certificate store issue, lookup, revoke (3.701403ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11658.233433
