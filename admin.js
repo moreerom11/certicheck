@@ -192,6 +192,7 @@ function renderAdminDashboard() {
           </div>
           <div class="admin-action-row">
             <button class="btn-success" data-action="approve" data-id="${app.id}">Approve</button>
+            <button class="btn-ghost" data-action="create-account" data-id="${app.id}">Create Account</button>
             <button class="btn-danger" data-action="reject" data-id="${app.id}">Reject</button>
           </div>
         </div>
@@ -308,11 +309,27 @@ function renderAdminDashboard() {
       const id = button.dataset.id;
       if (action === "approve" || action === "reject") {
         handleApplicationAction(action, id);
+      } else if (action === 'create-account') {
+        handleCreateAccountForApplication(id);
       } else if (action === "revoke") {
         handleRevokeAction(id);
       }
     });
   });
+}
+
+async function handleCreateAccountForApplication(id) {
+  try {
+    const data = await requestJson(`/applications/${id}/create-account`, { method: 'POST' });
+    if (data.success && data.credentials) {
+      alert(`Issuer account created:\nEmail: ${data.credentials.email}\nPassword: ${data.credentials.password}`);
+    } else if (data.success && data.user) {
+      alert(`Existing account linked for ${data.user.email}`);
+    }
+    await loadAdminDashboard();
+  } catch (err) {
+    showAdminError(err.message);
+  }
 }
 
 async function handleApplicationAction(action, id) {

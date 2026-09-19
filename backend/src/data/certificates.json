@@ -202,5 +202,22 @@
     "revoked_at": null,
     "revoked_by": null,
     "created_by": 4
+  },
+  {
+    "id": 13,
+    "certificate_id": "CERT-OBAF-846925",
+    "certificate_type": "Degree Certificate",
+    "verification_status": "valid",
+    "verification_message": "Issued via Certicheck",
+    "blockchain_hash": "a30a2521044c95002de66eac7c5b0698259a0059c887ab4a5752f070b36d48b9",
+    "blockchain_transaction_id": null,
+    "holder_name": "usuf",
+    "holder_email": "test@certicheck.com",
+    "issuer_name": "Obafemi Awolowo University",
+    "issuer_wallet": null,
+    "checked_at": "2026-09-19T18:17:24.501Z",
+    "revoked_at": null,
+    "revoked_by": null,
+    "created_by": 1
   }
 ]
