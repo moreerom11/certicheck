@@ -45,7 +45,7 @@
     </ul>
 
     <div class="nav-actions">
-      <button id="themeToggle" class="btn-toggle" aria-label="Toggle dark mode"></button>
+      <button id="themeToggle" class="btn-toggle" aria-label="Toggle dark mode" title="Switch to dark mode"></button>
       <button class="btn-ghost" data-page="signup">Sign up</button>
       <button class="btn-ghost" data-page="login">Login</button>
     </div>
@@ -55,6 +55,23 @@
        PAGE: HOME
   ══════════════════════════════════════ -->
   <div id="page-home" class="page active">
+    <div id="roleHomePanel" class="role-workspace-shell" style="display:none;">
+      <div class="page-wrap" style="max-width:980px">
+        <div class="page-header">
+          <div id="roleHomeBadge" class="page-tag">Issuer Workspace</div>
+          <h1 id="roleHomeTitle" class="page-title">Welcome back</h1>
+          <p id="roleHomeMeta" class="page-desc">Your certificate workspace.</p>
+        </div>
+
+        <div id="roleHomeStats" class="stats-grid role-stats-grid" style="margin-top:18px;"></div>
+
+        <div class="form-card" style="margin-top:18px;">
+          <div id="roleHomeActions" class="flex-actions"></div>
+          <div id="roleHomeSystem" style="margin-top:18px;"></div>
+        </div>
+      </div>
+    </div>
+
     <section class="hero">
       <div class="hero-grid-bg"></div>
 
@@ -69,17 +86,17 @@
 
         <div class="hero-ctas hero-entry-points">
           <div class="entry-card">
-            <div class="entry-title">Verify a certificate</div>
+            <div class="entry-title"></div>
             <div class="entry-actions"><button id="homeVerifyBtn" class="btn-primary" data-page="test">Verify now</button></div>
           </div>
 
           <div class="entry-card">
-            <div class="entry-title">I'm a graduate</div>
+            <div class="entry-title"></div>
             <div class="entry-actions"><button id="homeGraduateBtn" class="btn-outline" data-page="signup">Sign in / Sign up</button></div>
           </div>
 
           <div class="entry-card">
-            <div class="entry-title">I'm an institution</div>
+            <div class="entry-title"></div>
             <div class="entry-actions"><button id="homeIssuerBtn" class="btn-outline" data-page="apply">Apply as issuer</button></div>
           </div>
         </div>

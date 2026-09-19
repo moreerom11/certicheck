@@ -91,6 +91,18 @@ function setAdminState(enabled, user = null) {
     if (welcome) {
       welcome.textContent = user?.first_name || user?.email || "Admin";
     }
+    // populate profile sidebar if present
+    const profileName = document.getElementById('adminProfileName');
+    const profileEmail = document.getElementById('adminProfileEmail');
+    const profileRole = document.getElementById('adminProfileRole');
+    const avatar = document.querySelector('#adminProfile div[style*="width:72px"]');
+    if (profileName) profileName.textContent = user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : (user?.email || 'Admin');
+    if (profileEmail) profileEmail.textContent = user?.email || '';
+    if (profileRole) profileRole.innerHTML = `<span style="background:rgba(124,58,237,0.08);color:var(--purple-mid);padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px;">${(user?.user_type || 'admin').toUpperCase()}</span>`;
+    if (avatar && user?.first_name) {
+      const initials = (user.first_name[0] || 'A') + (user.last_name ? user.last_name[0] : 'D');
+      avatar.textContent = initials.toUpperCase();
+    }
     renderAdminTabs();
     loadAdminDashboard();
   } else {

@@ -55,26 +55,42 @@
     </div>
 
     <div class="form-card" id="adminDashboard" style="display:none;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-        <div>
-          <div class="page-tag">Issuer Administration</div>
-          <p class="page-desc" style="margin:0;">Review pending approvals, rejected requests, certificate checks, revoked certificates, and admin activity.</p>
-        </div>
-        <div style="text-align:right;color:var(--text-secondary);" id="adminSummary"></div>
+      <div class="admin-dashboard-shell" style="display:grid;grid-template-columns:260px 1fr;gap:20px;">
+        <aside id="adminProfile" style="padding:18px;">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px;">AD</div>
+            <div>
+              <div style="font-weight:800;font-size:18px;" id="adminProfileName">Admin</div>
+              <div style="color:var(--text-secondary);font-size:13px;margin-top:6px;" id="adminProfileEmail">admin@certicheck.com</div>
+              <div style="margin-top:10px;" id="adminProfileRole"><span style="background:rgba(124,58,237,0.08);color:var(--purple-mid);padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px;">ADMIN</span></div>
+            </div>
+
+            <div style="margin-top:8px;display:grid;gap:8px;">
+              <button class="btn-primary btn-block" id="adminReturnBtn">Return to main page</button>
+              <button class="btn-ghost btn-block" id="adminLogoutBtn">Logout</button>
+            </div>
+
+            <div style="margin-top:8px;font-size:13px;color:var(--text-secondary);">Signed in as <strong id="adminWelcome">Admin</strong></div>
+          </div>
+        </aside>
+
+        <main style="padding:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <div>
+              <div class="page-tag">Issuer Administration</div>
+              <p class="page-desc" style="margin:0;">Review pending approvals, rejected requests, certificate checks, revoked certificates, and admin activity.</p>
+            </div>
+            <div style="text-align:right;color:var(--text-secondary);" id="adminSummary"></div>
+          </div>
+
+          <div id="adminStatsGrid" style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;"></div>
+          <div class="admin-tabs" id="adminTabs" style="margin-top:24px;"></div>
+          <div id="adminSectionIntro" class="page-desc" style="margin:12px 0 0 0;color:var(--text-secondary);"></div>
+
+          <div id="adminList" style="margin-top:20px;"></div>
+        </main>
       </div>
-
-      <div id="adminStatsGrid" style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;"></div>
-      <div class="admin-tabs" id="adminTabs" style="margin-top:24px;"></div>
-      <div id="adminSectionIntro" class="page-desc" style="margin:12px 0 0 0;color:var(--text-secondary);"></div>
-
-      <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-        <button class="btn-primary" id="adminReturnBtn">Return to main page</button>
-        <button class="btn-ghost" id="adminLogoutBtn">Logout</button>
-      </div>
-      <div style="margin-top:8px;font-size:13px;color:var(--text-secondary);">Signed in as <strong id="adminWelcome">Admin</strong></div>
-
-      <div id="adminList" style="margin-top:20px;"></div>
-  </div>
+    </div>
 
   <script src="admin.js"></script>
 </body>

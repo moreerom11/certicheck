@@ -33,7 +33,7 @@ DB_PASSWORD=yourpassword
 DB_NAME=certicheck
 JWT_SECRET=your_secret_here
 ADMIN_EMAIL=admin@certicheck.com
-ADMIN_PASSWORD=BRBSMOKING22+
+ADMIN_PASSWORD=change-me-in-production
 ```
 
 ## 4. Initialize the database schema

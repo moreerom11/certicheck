@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const https = require('https');
@@ -19,6 +20,8 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
   'http://localhost:5173',
   'file://'
 ];
@@ -125,6 +128,13 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/verify', verifyRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/certificates', certificateRoutes);
+
+const frontendRoot = path.resolve(__dirname, '..', '..');
+app.use(express.static(frontendRoot));
+app.get(/^\/(?!api).*/, (req, res, next) => {
+  if (req.path === '/health') return next();
+  res.sendFile(path.join(frontendRoot, 'index.html'));
+});
 
 // ── 404 HANDLER ────────────────────────────────────────────────────────────
 app.use((req, res) => {

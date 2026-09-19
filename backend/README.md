@@ -45,7 +45,7 @@ DB_NAME=certicheck
 JWT_SECRET=your_secret_key_here
 JWT_EXPIRE=7d
 ADMIN_EMAIL=admin@certicheck.com
-ADMIN_=BRBSMOKING22+
+ADMIN_PASSWORD=change-me-in-production
 
 # IPFS / Pinata
 PINATA_JWT=

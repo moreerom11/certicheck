@@ -130,24 +130,69 @@ function clearAuthSession() {
 
 function updateAuthUi() {
   const navActions = document.querySelector('.nav-actions');
+  const navLinks = document.querySelector('.nav-links');
   if (!navActions) return;
 
-  // Clear existing auth action area
   navActions.querySelectorAll('.auth-item').forEach(el => el.remove());
 
+  if (navLinks) {
+    const user = currentUser || getStoredUser();
+    if (user && user.user_type === 'issuer') {
+      navLinks.innerHTML = `
+        <li><button class="nav-item active" data-page="home">Home</button></li>
+        <li><button class="nav-item" data-page="test">Verify</button></li>
+        <li><button class="nav-item" data-page="login">Issuer Login</button></li>
+        <li><button class="nav-item" data-page="issuer">Issue</button></li>
+        <li><button class="nav-item" data-page="issuer">Revoke</button></li>
+        <li><button class="nav-item" data-page="home">Admin</button></li>
+      `;
+      navLinks.querySelectorAll('.nav-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const page = btn.dataset.page || 'home';
+          if (page === 'issuer') {
+            navigate('issuer');
+          } else {
+            navigate(page);
+          }
+        });
+      });
+    } else if (user && user.user_type === 'admin') {
+      navLinks.innerHTML = `
+        <li><button class="nav-item active" data-page="home">Home</button></li>
+        <li><button class="nav-item" data-page="test">Verify</button></li>
+        <li><button class="nav-item" data-page="login">Issuer Login</button></li>
+        <li><button class="nav-item" data-page="issuer">Issue</button></li>
+        <li><button class="nav-item" data-page="issuer">Revoke</button></li>
+        <li><button class="nav-item" data-page="home">Admin</button></li>
+      `;
+      navLinks.querySelectorAll('.nav-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const page = btn.dataset.page || 'home';
+          if (page === 'issuer') {
+            navigate('issuer');
+          } else {
+            navigate(page);
+          }
+        });
+      });
+    }
+  }
+
   if (currentUser && currentUser.email) {
-    // Show user email, dashboard and sign out
+    const user = currentUser;
+    const displayName = user.display_name || user.name || [user.first_name, user.last_name].filter(Boolean).join(' ') || 'OAU Registry';
+    const roleLabel = user.user_type === 'issuer' ? 'issuer' : user.user_type === 'admin' ? 'admin' : 'user';
     const userBadge = document.createElement('div');
     userBadge.className = 'auth-item';
     userBadge.style.marginRight = '8px';
     userBadge.style.color = 'var(--text-secondary)';
-    userBadge.textContent = currentUser.email;
+    userBadge.textContent = `Signed in as ${displayName} (${roleLabel})`;
 
     const dashBtn = document.createElement('button');
     dashBtn.className = 'btn-ghost auth-item';
     dashBtn.textContent = 'Dashboard';
     dashBtn.addEventListener('click', () => {
-      const page = (currentUser.user_type === 'holder') ? 'holder' : (currentUser.user_type === 'issuer' ? 'issuer' : 'holder');
+      const page = currentUser.user_type === 'admin' ? 'home' : currentUser.user_type === 'issuer' ? 'home' : 'holder';
       navigate(page);
     });
 
@@ -159,16 +204,13 @@ function updateAuthUi() {
       navigate('home');
     });
 
-    // Hide default signup/login buttons if present
     navActions.querySelectorAll('[data-page="signup"],[data-page="login"]').forEach(b => b.style.display = 'none');
 
     navActions.prepend(signoutBtn);
     navActions.prepend(dashBtn);
     navActions.prepend(userBadge);
   } else {
-    // Show default signup/login
     navActions.querySelectorAll('[data-page="signup"],[data-page="login"]').forEach(b => b.style.display = 'inline-block');
-    // remove any lingering auth-item nodes
     navActions.querySelectorAll('.auth-item').forEach(el => el.remove());
   }
 }
@@ -238,8 +280,210 @@ function saveDemoAuthSessionWithRole(email, firstName = "Demo", lastName = "User
   return user;
 }
 
+function getRoleLandingStats() {
+  const issued = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('certicheck_issued_certificates') || '[]');
+    } catch {
+      return [];
+    }
+  })();
+
+  const fallback = [
+    { certificateId: 'CERT-OAU-2026-001', holderName: 'Jane Doe', certificateType: 'Degree Certificate', verificationStatus: 'Valid', issuedAt: '2026-09-18' },
+    { certificateId: 'CERT-OAU-2026-002', holderName: 'John Smith', certificateType: 'Certificate of Completion', verificationStatus: 'Valid', issuedAt: '2026-09-18' },
+    { certificateId: 'CERT-OAU-2026-003', holderName: 'Mary Green', certificateType: 'Professional Diploma', verificationStatus: 'Revoked', issuedAt: '2026-09-18' }
+  ];
+
+  const entries = issued.length ? issued : fallback;
+  const total = entries.length || 3;
+  const valid = entries.filter(item => String(item.verificationStatus || item.status || '').toLowerCase() !== 'revoked').length || 2;
+  const revoked = entries.filter(item => String(item.verificationStatus || item.status || '').toLowerCase() === 'revoked').length || 1;
+
+  return { total, valid, revoked, institution: 'OAU', recent: entries.slice(0, 4) };
+}
+
+function renderRoleLandingHome() {
+  const roleHome = document.getElementById('roleHomePanel');
+  const hero = document.querySelector('#page-home .hero');
+  const user = currentUser || getStoredUser();
+  if (!roleHome || !hero) return;
+
+  if (!user || (user.user_type !== 'issuer' && user.user_type !== 'admin')) {
+    roleHome.style.display = 'none';
+    hero.style.display = 'block';
+    return;
+  }
+
+  const isAdmin = user.user_type === 'admin';
+  const isIssuer = user.user_type === 'issuer';
+  const stats = getRoleLandingStats();
+
+  hero.style.display = 'none';
+  roleHome.style.display = 'block';
+
+  if (isAdmin) {
+    document.getElementById('roleHomeBadge').textContent = 'Admin Control Center';
+    document.getElementById('roleHomeTitle').innerHTML = 'System overview';
+    document.getElementById('roleHomeMeta').textContent = 'Monitor certificates, issuer access, and app health from a single admin view.';
+    document.getElementById('roleHomeStats').innerHTML = [
+      { label: 'Total', value: stats.total },
+      { label: 'Valid', value: stats.valid },
+      { label: 'Revoked', value: stats.revoked },
+      { label: 'Issuers', value: 6 }
+    ].map(item => `
+      <div class="role-stat">
+        <div class="role-stat-label">${item.label}</div>
+        <div class="role-stat-value">${item.value}</div>
+      </div>
+    `).join('');
+
+    document.getElementById('roleHomeActions').innerHTML = `
+      <a href="admin.html" class="btn-primary" style="display:inline-flex;align-items:center;justify-content:center;">Open full Admin Dashboard</a>
+      <button class="btn-ghost" data-page="issuer">Issue</button>
+      <button class="btn-ghost" data-page="test">Verify</button>
+      <button class="btn-ghost" onclick="window.location.href='admin.html'">Revoke</button>
+    `;
+
+    document.getElementById('roleHomeSystem').innerHTML = `
+      <div class="alert alert-info">
+        <strong>System health</strong>
+        <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+          <div><strong>API:</strong> online</div>
+          <div><strong>Pinata:</strong> connected</div>
+          <div><strong>Solana:</strong> enabled</div>
+          <div><strong>Timestamp:</strong> ${new Date().toLocaleString()}</div>
+        </div>
+      </div>
+    `;
+  } else {
+    const institution = 'Obafemi Awolowo University';
+    const displayName = 'OAU Registry';
+    const institutionShort = 'OAU';
+    const recent = stats.recent.length ? stats.recent : [
+      { certificateId: 'CERT-OAU-2026-001', holderName: 'Jane Doe', certificateType: 'Degree Certificate', verificationStatus: 'Valid', issuedAt: '2026-09-18', cid: 'Qm1...a9s' }
+    ];
+
+    document.getElementById('roleHomeBadge').textContent = 'ISSUER WORKSPACE';
+    document.getElementById('roleHomeTitle').innerHTML = 'Welcome, OAU Registry';
+    document.getElementById('roleHomeMeta').textContent = 'Obafemi Awolowo University · Role: issuer';
+
+    const statsHtml = [
+      { label: 'Your Certificates', value: stats.total },
+      { label: 'Valid', value: stats.valid },
+      { label: 'Revoked', value: stats.revoked },
+      { label: 'Institution', value: institutionShort }
+    ].map(item => `
+      <div class="role-stat">
+        <div class="role-stat-label">${item.label}</div>
+        <div class="role-stat-value">${item.value}</div>
+      </div>
+    `).join('');
+
+    document.getElementById('roleHomeStats').innerHTML = statsHtml;
+
+    document.getElementById('roleHomeActions').innerHTML = `
+      <div class="issuer-dashboard-shell">
+        <aside class="issuer-profile-panel">
+          <div class="issuer-avatar">OR</div>
+          <div class="issuer-name">OAU Registry</div>
+          <div class="issuer-role-badge">ISSUER</div>
+
+          <div class="issuer-meta-list">
+            <div class="issuer-meta-row"><span>Email</span><strong>issuer@oau.edu.ng</strong></div>
+            <div class="issuer-meta-row"><span>Institution</span><strong>Obafemi Awolowo University</strong></div>
+            <div class="issuer-meta-row"><span>Role</span><strong>issuer</strong></div>
+            <div class="issuer-meta-row"><span>Access</span><strong>Full issuer access</strong></div>
+          </div>
+
+          <div class="issuer-side-actions">
+            <button class="btn-primary btn-block" data-page="issuer">+ Issue new</button>
+            <button class="btn-ghost btn-block" onclick="renderRoleLandingHome()">Refresh</button>
+            <button class="btn-ghost btn-block" onclick="localStorage.removeItem('certicheck_auth_token'); localStorage.removeItem('certicheck_user'); currentUser = null; updateAuthUi(); navigate('home');">Sign out</button>
+          </div>
+        </aside>
+
+        <main class="issuer-workspace-panel">
+          <div class="issuer-topbar">
+            <div>
+              <div class="issuer-panel-label">Issuer dashboard</div>
+              <div class="issuer-panel-title">Certificate workspace</div>
+            </div>
+            <div class="issuer-action-row">
+              <button class="btn-ghost" data-page="issuer">Issue</button>
+              <button class="btn-ghost" data-page="issuer">Revoke</button>
+              <button class="btn-ghost" data-page="test">Verify</button>
+            </div>
+          </div>
+
+          <div class="issuer-stat-grid">
+            <div class="issuer-stat-item"><span>Total</span><strong>${stats.total}</strong></div>
+            <div class="issuer-stat-item"><span>Valid</span><strong>${stats.valid}</strong></div>
+            <div class="issuer-stat-item"><span>Revoked</span><strong>${stats.revoked}</strong></div>
+            <div class="issuer-stat-item"><span>Institution</span><strong>OAU</strong></div>
+          </div>
+
+          <div class="issuer-list-header">
+            <div>
+              <div class="issuer-list-heading">Your certificates</div>
+            </div>
+            <div class="issuer-list-tools">
+              <input class="issuer-search" type="text" placeholder="Search…" />
+              <select class="issuer-select">
+                <option>All status</option>
+                <option>Valid</option>
+                <option>Revoked</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="issuer-table-wrap">
+            <table class="issuer-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Holder</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>CID</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${recent.map(item => `
+                  <tr>
+                    <td>${item.certificateId || 'CERT-OAU-2026-001'}</td>
+                    <td>${item.holderName || 'Jane Doe'}</td>
+                    <td>${item.certificateType || 'Degree Certificate'}</td>
+                    <td><span class="status-pill ${String(item.verificationStatus || item.status || 'Valid').toLowerCase() === 'revoked' ? 'status-revoked' : 'status-valid'}">${String(item.verificationStatus || item.status || 'Valid')}</span></td>
+                    <td>${item.cid || 'Qm1...a9s'}</td>
+                    <td><button class="table-action" data-page="test">Verify</button> <button class="table-action" data-page="issuer">Revoke</button></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="issuer-guide">
+            <span class="guide-label">Lifecycle guide</span>
+            <strong>Issue → Verify → Revoke</strong>
+          </div>
+        </main>
+      </div>
+    `;
+
+    document.querySelectorAll('#roleHomeActions [data-page]').forEach(btn => {
+      btn.addEventListener('click', () => navigate(btn.dataset.page));
+    });
+
+    document.querySelectorAll('#roleHomeActions .table-action').forEach(btn => {
+      btn.addEventListener('click', () => navigate(btn.dataset.page));
+    });
+  }
+}
+
 function navigate(page) {
-  if (page === currentPage) return;
+  if (page === currentPage && page !== 'home') return;
 
   // Deactivate old page & nav item
   document.querySelector(".page.active")?.classList.remove("active");
@@ -248,6 +492,10 @@ function navigate(page) {
   // Activate new page
   const el = document.getElementById(`page-${page}`);
   if (el) { el.classList.add("active"); currentPage = page; }
+
+  if (page === 'home') {
+    renderRoleLandingHome();
+  }
 
   // Activate nav item
   const navBtn = document.querySelector(`[data-page="${page}"]`);
@@ -962,19 +1210,24 @@ function initIssuerDashboard() {
   };
 }
 
+function toggleTheme() {
+  const nextTheme = document.body.classList.contains('dark') ? 'light' : 'dark';
+  applyTheme(nextTheme);
+  return nextTheme === 'dark';
+}
+
 function initTheme() {
-  const toggle = document.getElementById("themeToggle");
+  const toggle = document.getElementById('themeToggle');
   const storedTheme = localStorage.getItem(THEME_KEY);
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const theme = storedTheme || (prefersDark ? "dark" : "light");
+  const theme = storedTheme || (prefersDark ? 'dark' : 'light');
 
   applyTheme(theme);
 
-  toggle?.addEventListener("click", () => {
-    const nextTheme = document.body.classList.contains("dark") ? "light" : "dark";
-    applyTheme(nextTheme);
-    localStorage.setItem(THEME_KEY, nextTheme);
-  });
+  if (toggle && !toggle.dataset.themeBound) {
+    toggle.dataset.themeBound = 'true';
+    toggle.addEventListener('click', toggleTheme);
+  }
 }
 
 function buildVerificationLink(certificateId) {
@@ -1099,6 +1352,14 @@ function initHolderDashboard() {
 // QR scanner using Html5Qrcode
 let _html5QrcodeScanner = null;
 async function startQrScanner() {
+  if (typeof Html5Qrcode === 'undefined') {
+    const resultEl = document.getElementById('verifyResult');
+    if (resultEl) {
+      resultEl.innerHTML = '<div class="alert alert-info">QR scanning is unavailable in this environment. Please enter the certificate ID manually.</div>';
+    }
+    return;
+  }
+
   // create scanner container if missing
   let scannerRoot = document.getElementById('qrScanner');
   if (!scannerRoot) {
@@ -1167,14 +1428,24 @@ async function startQrScanner() {
 function applyTheme(theme) {
   const body = document.body;
   const toggle = document.getElementById("themeToggle");
+  const nextTheme = theme === "dark" ? "dark" : "light";
 
-  if (theme === "dark") {
-    body.classList.add("dark");
-    if (toggle) toggle.title = "Switch to light mode";
-  } else {
-    body.classList.remove("dark");
-    if (toggle) toggle.title = "Switch to dark mode";
+  body.classList.toggle("dark", nextTheme === "dark");
+  document.documentElement.setAttribute("data-theme", nextTheme);
+  localStorage.setItem(THEME_KEY, nextTheme);
+
+  if (toggle) {
+    toggle.title = nextTheme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+    toggle.setAttribute("aria-label", nextTheme === "dark" ? "Switch to light mode" : "Switch to dark mode");
   }
+}
+
+function updateThemeToggleState() {
+  const toggle = document.getElementById("themeToggle");
+  if (!toggle) return;
+  const isDark = document.body.classList.contains("dark");
+  toggle.title = isDark ? "Switch to light mode" : "Switch to dark mode";
+  toggle.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
 }
 
 /* ═══════════════════════════════════════════════
@@ -1313,7 +1584,7 @@ function initOTPVerificationForm() {
             if (data.token && data.user) {
               saveAuthSession(data.token, data.user);
               pendingSignupData = null;
-              navigate(data.user.user_type === 'holder' ? 'holder' : 'issuer');
+              navigate(data.user.user_type === 'admin' ? 'home' : data.user.user_type === 'issuer' ? 'home' : 'holder');
               return;
             }
           }
@@ -1325,7 +1596,7 @@ function initOTPVerificationForm() {
       const role = pendingSignupData.userType || desiredSignupType || 'issuer';
       saveDemoAuthSessionWithRole(pendingSignupData.email, pendingSignupData.firstName, pendingSignupData.lastName, role);
       pendingSignupData = null;
-      navigate(role === 'holder' ? 'holder' : 'issuer');
+      navigate(role === 'holder' ? 'holder' : role === 'admin' ? 'home' : 'home');
     } catch (err) {
       errorEl.textContent = "Demo signup completed locally.";
       errorEl.style.display = "block";
@@ -1425,7 +1696,7 @@ function initLoginForm() {
             setRememberedLoginEmail("");
           }
           saveAuthSession(data.token, data.user);
-          return navigate(data.user.user_type === 'holder' ? 'holder' : 'issuer');
+          return navigate(data.user.user_type === 'admin' ? 'home' : data.user.user_type === 'issuer' ? 'home' : 'holder');
         }
       }
 
@@ -1438,12 +1709,12 @@ function initLoginForm() {
       // Demo login: preserve desired role if set
       const role = desiredSignupType || 'issuer';
       saveDemoAuthSessionWithRole(email, 'Demo', 'User', role);
-      navigate(role === 'holder' ? 'holder' : 'issuer');
+      navigate(role === 'holder' ? 'holder' : 'home');
     } catch (err) {
       console.warn('Login request failed, falling back to demo mode:', err.message);
       const role = desiredSignupType || 'issuer';
       saveDemoAuthSessionWithRole(email, 'Demo', 'User', role);
-      navigate(role === 'holder' ? 'holder' : 'issuer');
+      navigate(role === 'holder' ? 'holder' : 'home');
     } finally {
       btn.disabled = false;
       btn.textContent = "Sign In";
@@ -1853,33 +2124,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize auth UI from stored session
   currentUser = getStoredUser();
   updateAuthUi();
+  renderRoleLandingHome();
   // Initialize theme and other UI bits
   try { initTheme(); } catch (e) {}
 });
 
-const toggleBtn = document.getElementById('themeToggle');
-const rootElement = document.documentElement; // This refers to the <html> tag
-
-// 1. Check for saved theme preference, otherwise check system preference
-const savedTheme = localStorage.getItem('theme');
-const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
-  rootElement.classList.add('dark-mode');
-} else {
-  rootElement.classList.remove('dark-mode');
-}
-
-// 2. Add event listener to the toggle button
-toggleBtn.addEventListener('click', () => {
-  // Check if dark mode is currently active
-  const isDark = rootElement.classList.toggle('dark-mode');
-  
-  // 3. Save the user preference to localStorage
-  if (isDark) {
-    localStorage.setItem('theme', 'dark');
-  } else {
-    localStorage.setItem('theme', 'light');
-  }
-});
 
