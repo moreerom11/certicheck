@@ -1,76 +1,33 @@
 "use strict";
 
-const FAQ_DATA = [
-  {
-    category: "About the System",
-    items: [
-      { q: "What is the Solana Certificate Verification System?",
-        a: "Our platform issues tamper-proof digital certificates anchored on the Solana blockchain. Each certificate is a verifiable on-chain record that any third party can independently confirm — no middlemen, no central authority." },
-      { q: "Who can issue certificates?",
-        a: "Accredited institutions, training providers, universities, and businesses with a verified issuer account can mint certificates directly on-chain." },
-      { q: "What types of certificates can be issued?",
-        a: "Academic degrees, professional certifications, course completions, skill badges, event attendance, and any credential requiring verifiable authenticity." },
-      { q: "Is this system open-source?",
-        a: "Yes. Our smart contracts and verification SDK are fully open-source. You can review the code on GitHub at any time." },
-    ],
-  },
-  {
-    category: "Verification",
-    items: [
-      { q: "How do I verify a certificate?",
-        a: "Enter the certificate ID. Our verifier queries Solana directly and returns the authenticity result in seconds." },
-      { q: "Can a certificate be faked or tampered with?",
-        a: "No. Each certificate is cryptographically signed by the issuer's on-chain keypair and stored as an immutable transaction. Any alteration invalidates the signature." },
-      { q: "What information is publicly visible on-chain?",
-        a: "The certificate hash, issuer address, issuance timestamp, and revocation status. Personal details are stored off-chain and revealed only with the holder's consent." },
-      { q: "How long does verification take?",
-        a: "Typically under 2 seconds, thanks to Solana's high throughput and sub-second finality." },
-      { q: "Can I verify without creating an account?",
-        a: "Yes. Certificate verification is fully public and requires no login or wallet." },
-    ],
-  },
-  {
-    category: "For Certificate Holders",
-    items: [
-      { q: "How do I receive my certificate?",
-        a: "After the issuer mints your certificate, you will receive an email with your unique certificate ID and a link to your digital certificate page." },
-      { q: "Do I need a Solana wallet?",
-        a: "No wallet is required to receive or share a certificate. A wallet is optional for holders who wish to take full self-custody." },
-      { q: "Can I share my certificate on LinkedIn?",
-        a: "Yes. Each certificate has a shareable link and an embeddable badge. LinkedIn, Twitter/X, and direct URL sharing are all supported." },
-      { q: "What happens if I lose my certificate link?",
-        a: "Log in to your holder dashboard and retrieve all certificates issued to your email at any time." },
-      { q: "Can a certificate be revoked?",
-        a: "Issuers can revoke certificates (e.g. in cases of fraud). A revoked certificate shows a clear revoked status during verification, but the on-chain record is never deleted." },
-    ],
-  },
-  {
-    category: "For Issuers",
-    items: [
-      { q: "How do I become a verified issuer?",
-        a: "Apply through the issuer onboarding form. Our team reviews your credentials and activates your issuer account within 1–3 business days." },
-      { q: "What does it cost to issue a certificate?",
-        a: "Issuers pay a small Solana network fee per certificate (typically less than $0.01 USD) plus any applicable platform subscription fee." },
-      { q: "Can I issue certificates in bulk?",
-        a: "Yes. Our API and CSV upload tool support batch issuance — thousands of certificates in a single operation." },
-      { q: "Can I customise the certificate design?",
-        a: "Yes. Upload your logo, choose your colour scheme, and define custom fields in the issuer dashboard." },
-    ],
-  },
-  {
-    category: "Technical & Security",
-    items: [
-      { q: "Which Solana network is used?",
-        a: "Production certificates are issued on Solana mainnet-beta. Devnet is available for testing before going live." },
-      { q: "Has the smart contract been audited?",
-        a: "Yes. Our on-chain program has been independently audited. The full report is publicly available in our documentation." },
-      { q: "Is there an API I can integrate?",
+// Global error reporting overlay to prevent blank pages on runtime errors
+function showAppError(message) {
+  try {
+    let el = document.getElementById('appErrorBanner');
+    if (!el) {
+      // OTP verification step removed: immediate registration flow used instead
         a: "Yes. A fully documented REST API and TypeScript SDK are available. See the Resources page for details." },
     ],
   },
 ];
 
-const API_BASE_URL = `${window.location.origin}/api`;
+const API_BASE_URL = (function() {
+  // In local dev when the static site is served (eg. via python http.server on 8000),
+  // we must point API calls to the backend server rather than the static origin
+  // (which would return HTML and cause JSON.parse errors). Use backend at 127.0.0.1:5000 by default.
+  try {
+    const host = window.location.hostname;
+    const port = window.location.port;
+    if (host === '127.0.0.1' || host === 'localhost') {
+      // If running the static server on a non-API port (commonly 8000), prefer backend
+      if (port && port !== '5000') return 'http://127.0.0.1:5000/api';
+    }
+  } catch (e) {
+    // fallback to explicit backend
+    return 'http://127.0.0.1:5000/api';
+  }
+  return `${window.location.origin}/api`;
+})();
 
 const RESOURCES_DATA = [
   { icon: "📄", title: "Documentation",         desc: "Full API reference, SDK docs, and integration guides.",             tag: "Docs" },
@@ -279,11 +236,54 @@ function saveDemoAuthSessionWithRole(email, firstName = "Demo", lastName = "User
 
 function getIssuerIssuedCertificates() {
   try {
-    const raw = localStorage.getItem('certicheck_issued_certificates');
+    const user = currentUser || getStoredUser();
+    const key = issuerIssuedKeyFor(user);
+    const raw = localStorage.getItem(key);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
+  }
+}
+
+function issuerIssuedKeyFor(user) {
+  const u = user || currentUser || getStoredUser() || {};
+  const id = (u.email || u.id || 'anonymous').toString();
+  return `certicheck_issued_certificates:${id}`;
+}
+
+function issuerLastResultKeyFor(user) {
+  const u = user || currentUser || getStoredUser() || {};
+  const id = (u.email || u.id || 'anonymous').toString();
+  return `certicheck_last_issuer_result:${id}`;
+}
+
+function setIssuerIssuedCertificates(list, user) {
+  try {
+    const key = issuerIssuedKeyFor(user);
+    localStorage.setItem(key, JSON.stringify(Array.isArray(list) ? list : []));
+  } catch (e) {
+    console.warn('Failed to persist issuer certificates', e?.message || e);
+  }
+}
+
+function setLastIssuerResult(obj, user) {
+  try {
+    const key = issuerLastResultKeyFor(user);
+    localStorage.setItem(key, JSON.stringify(obj || null));
+  } catch (e) {
+    console.warn('Failed to persist last issuer result', e?.message || e);
+  }
+}
+
+function clearUserIssuerStorage(user) {
+  try {
+    const u = user || currentUser || getStoredUser();
+    if (!u) return;
+    localStorage.removeItem(issuerIssuedKeyFor(u));
+    localStorage.removeItem(issuerLastResultKeyFor(u));
+  } catch (e) {
+    console.warn('Failed to clear issuer scoped storage', e?.message || e);
   }
 }
 
@@ -389,13 +389,13 @@ function renderRoleLandingHome() {
       </div>
     `).join('');
 
-    const latestIssuerResult = (() => {
-      try {
-        return JSON.parse(localStorage.getItem('certicheck_last_issuer_result') || 'null');
-      } catch {
-        return null;
-      }
-    })();
+      const latestIssuerResult = (() => {
+        try {
+          return JSON.parse(localStorage.getItem(issuerLastResultKeyFor()) || 'null');
+        } catch {
+          return null;
+        }
+      })();
 
     document.getElementById('roleHomeActions').innerHTML = `
       <div class="issuer-dashboard-shell" style="grid-template-columns:320px minmax(0, 1fr); gap:22px; align-items:start;">
@@ -415,7 +415,7 @@ function renderRoleLandingHome() {
             ${walletStatusMarkup}
             <button id="issuerWalletConnectButton" class="btn-primary btn-block">${walletAddress ? 'Wallet connected' : 'Connect Wallet'}</button>
             <button class="btn-ghost btn-block" onclick="renderRoleLandingHome()">Refresh</button>
-            <button class="btn-ghost btn-block" onclick="localStorage.removeItem('certicheck_auth_token'); localStorage.removeItem('certicheck_user'); localStorage.removeItem('certicheck_wallet_address'); localStorage.removeItem('certicheck_last_issuer_result'); currentUser = null; updateAuthUi(); navigate('home');">Logout</button>
+              <button class="btn-ghost btn-block" onclick="clearUserIssuerStorage(); localStorage.removeItem('certicheck_auth_token'); localStorage.removeItem('certicheck_user'); localStorage.removeItem('certicheck_wallet_address'); currentUser = null; updateAuthUi(); navigate('home');">Logout</button>
           </div>
         </aside>
 
@@ -567,7 +567,7 @@ function renderRoleLandingHome() {
 
           const entries = getIssuerIssuedCertificates();
           const updated = entries.map(item => item.certificateId === certificateId ? { ...item, verificationStatus: 'revoked', revokedAt: new Date().toISOString() } : item);
-          localStorage.setItem('certicheck_issued_certificates', JSON.stringify(updated));
+          setIssuerIssuedCertificates(updated);
           renderRoleLandingHome();
         } catch (error) {
           alert(error.message || 'Unable to revoke certificate.');
@@ -661,13 +661,13 @@ function renderRoleLandingHome() {
             issuerEmail: user.email || 'issuer@oau.edu.ng',
             metadata: generatedCertificate.metadata
           });
-          localStorage.setItem('certicheck_issued_certificates', JSON.stringify(list));
-          localStorage.setItem('certicheck_last_issuer_result', JSON.stringify({
+          setIssuerIssuedCertificates(list, user);
+          setLastIssuerResult({
             title: 'Certificate issued successfully.',
             certificateId: nextId,
             ipfsCid,
             transaction: txSig
-          }));
+          }, user);
 
           notice.style.display = 'none';
           result.innerHTML = `
@@ -1105,12 +1105,12 @@ function initIssuerDashboard() {
       }
     }
 
-    try {
-      const raw = localStorage.getItem('certicheck_issued_certificates');
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
+      try {
+        const raw = localStorage.getItem(issuerIssuedKeyFor(user));
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
   }
 
   async function renderIssuerCertificatesList() {
@@ -1152,9 +1152,9 @@ function initIssuerDashboard() {
             if (!res.ok) throw new Error(json.error || 'Revoke failed');
           } else {
             // Demo fallback: mark locally
-            const allLocal = await loadIssuerCertificates();
-            const updated = allLocal.map(x => x.certificateId === certId ? { ...x, verificationStatus: 'revoked', revokedAt: new Date().toISOString() } : x);
-            localStorage.setItem('certicheck_issued_certificates', JSON.stringify(updated));
+              const allLocal = await loadIssuerCertificates();
+              const updated = allLocal.map(x => x.certificateId === certId ? { ...x, verificationStatus: 'revoked', revokedAt: new Date().toISOString() } : x);
+              setIssuerIssuedCertificates(updated);
           }
 
           // Update UI: mark row revoked
@@ -1288,8 +1288,7 @@ function initIssuerDashboard() {
 
         // Append to issuer certificate list in localStorage for dashboard rendering
         try {
-          const storedRaw = localStorage.getItem('certicheck_issued_certificates');
-          const arr = storedRaw ? JSON.parse(storedRaw) : [];
+          const arr = getIssuerIssuedCertificates();
           const entry = {
             certificateId,
             holderName: certificate.holderName || payload.holderName || payload.holderEmail,
@@ -1306,7 +1305,7 @@ function initIssuerDashboard() {
             issuedAt: new Date().toISOString()
           };
           arr.unshift(entry);
-          localStorage.setItem('certicheck_issued_certificates', JSON.stringify(arr));
+          setIssuerIssuedCertificates(arr, user);
         } catch (e) { console.warn('Failed to store issued certificate locally', e); }
 
         resultEl.innerHTML = `
@@ -1359,8 +1358,8 @@ function initIssuerDashboard() {
 
       // Append to issuer certificate list in localStorage for dashboard rendering
       try {
-        const storedRaw = localStorage.getItem('certicheck_issued_certificates');
-        const arr = storedRaw ? JSON.parse(storedRaw) : [];
+        const storedRaw = null;
+        const arr = getIssuerIssuedCertificates();
         const entry = {
           certificateId,
           holderName: certificate.holderName || payload.holderName || payload.holderEmail,
@@ -1377,7 +1376,7 @@ function initIssuerDashboard() {
           issuedAt: new Date().toISOString()
         };
         arr.unshift(entry);
-        localStorage.setItem('certicheck_issued_certificates', JSON.stringify(arr));
+        setIssuerIssuedCertificates(arr, user);
       } catch (e) { console.warn('Failed to store issued certificate locally', e); }
 
       resultEl.innerHTML = `
@@ -1463,8 +1462,7 @@ async function copyVerificationLink(certificateId) {
 function getHolderCertificatesForUser(user) {
   if (!user) return [];
 
-  const raw = localStorage.getItem('certicheck_issued_certificates');
-  const arr = raw ? JSON.parse(raw) : [];
+  const arr = getIssuerIssuedCertificates();
 
   return arr.filter((certificate) => {
     const holderEmail = String(certificate.holderEmail || certificate.holder_email || '').toLowerCase();
@@ -1618,25 +1616,49 @@ function initSignupForm() {
       btn.disabled = true;
       btn.textContent = "Sending OTP...";
 
+      // Direct registration (OTP removed): create account immediately
       try {
-        await fetch(`${API_BASE_URL}/auth/send-otp`, {
+        btn.disabled = true;
+        btn.textContent = 'Creating account...';
+        const registerResponse = await fetch(`${API_BASE_URL}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
+          body: JSON.stringify({ email, password, firstName, lastName, userType: desiredSignupType || 'issuer' })
         });
-      } catch {}
-
-      pendingSignupData = {
-        email,
-        firstName,
-        lastName,
-        password,
-        userType: desiredSignupType || 'holder'
-      };
-
-      errorEl.textContent = "Demo mode: OTP skipped. Use code 000000 to continue.";
-      errorEl.style.display = "block";
-      navigate('verify-otp');
+        if (registerResponse.ok) {
+          const data = await registerResponse.json();
+          saveAuthSession(data.token, data.user);
+          // If there is a pending application draft, attach contact info and submit
+          const draft = loadPendingApplicationDraft();
+          if (draft) {
+            try {
+              draft.contactEmail = email;
+              await fetch(`${API_BASE_URL}/applications/submit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
+                body: JSON.stringify(draft)
+              });
+              clearPendingApplicationDraft();
+            } catch (e) { console.warn('Failed to auto-submit draft after registration', e); }
+          }
+          navigate(data.user.user_type === 'admin' ? 'home' : data.user.user_type === 'issuer' ? 'home' : 'holder');
+          return;
+        } else {
+          const err = await registerResponse.json().catch(() => ({}));
+          errorEl.textContent = err.error || 'Registration failed';
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Create account';
+          return;
+        }
+      } catch (e) {
+        console.warn('Registration request failed', e);
+        errorEl.textContent = 'Registration failed';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Create account';
+        return;
+      }
       
     } catch (err) {
       errorEl.textContent = "Demo signup is ready. Use code 000000 to continue.";
@@ -1710,6 +1732,20 @@ function initOTPVerificationForm() {
             if (data.token && data.user) {
               saveAuthSession(data.token, data.user);
               pendingSignupData = null;
+              // If a draft application exists, submit it now as the authenticated user
+              const draft = loadPendingApplicationDraft();
+              if (draft) {
+                try {
+                  await fetch(`${API_BASE_URL}/applications/submit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
+                    body: JSON.stringify(draft)
+                  });
+                  clearPendingApplicationDraft();
+                } catch (e) {
+                  console.warn('Failed to auto-submit pending application after signup', e.message || e);
+                }
+              }
               navigate(data.user.user_type === 'admin' ? 'home' : data.user.user_type === 'issuer' ? 'home' : 'holder');
               return;
             }
@@ -2169,9 +2205,29 @@ function saveApplicationLocally(applicationData) {
     status: "pending"
   };
 
-  const apps = loadPendingApplications();
-  apps.push(application);
-  savePendingApplications(apps);
+  // Instead of saving a local anonymous application, store it as a draft
+  // and prompt the user to sign up/login so the application is linked to their account.
+  try {
+    localStorage.setItem('certicheck_pending_application_draft', JSON.stringify(applicationData));
+    // Pre-fill signup flow and direct user to signup to continue
+    desiredSignupType = 'issuer';
+    navigate('signup');
+  } catch (e) {
+    const apps = loadPendingApplications();
+    apps.push(application);
+    savePendingApplications(apps);
+  }
+}
+
+function loadPendingApplicationDraft() {
+  try {
+    const raw = localStorage.getItem('certicheck_pending_application_draft');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function clearPendingApplicationDraft() {
+  try { localStorage.removeItem('certicheck_pending_application_draft'); } catch (e) {}
 }
 
 function showSuccessMessage(name, email, volumeText) {

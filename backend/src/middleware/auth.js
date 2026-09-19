@@ -36,37 +36,82 @@ function verifyToken(req, res, next) {
   }
 }
 
-function verifyAdmin(req, res, next) {
-  if (!req.user || req.user.user_type !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
+async function resolveUserAccess(req) {
+  if (!req.user || !req.user.id) {
+    return null;
   }
-  next();
+
+  const result = await pool.query(
+    `SELECT u.id, u.user_type, u.is_active, ip.status AS issuer_status
+     FROM users u
+     LEFT JOIN issuer_profiles ip ON ip.user_id = u.id
+     WHERE u.id = $1 LIMIT 1`,
+    [req.user.id]
+  );
+
+  if (!result.rows[0]) {
+    return null;
+  }
+
+  return result.rows[0];
+}
+
+async function verifyAdmin(req, res, next) {
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const user = await resolveUserAccess(req);
+    const effectiveUserType = user?.user_type || req.user.user_type;
+
+    if (effectiveUserType !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    req.user.user_type = effectiveUserType;
+    req.user.is_active = user?.is_active ?? req.user.is_active;
+    next();
+  } catch (err) {
+    console.error('Admin verification failed:', err.message);
+    return res.status(500).json({ error: 'Unable to verify admin access' });
+  }
 }
 
 async function verifyIssuer(req, res, next) {
-  if (!req.user || !['issuer', 'admin'].includes(req.user.user_type)) {
-    return res.status(403).json({ error: 'Issuer access required' });
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
-  const isDemoRequest = process.env.DEMO_MODE === 'true' || Boolean(req.headers['x-demo-user-type']);
+  try {
+    const user = await resolveUserAccess(req);
+    const effectiveUserType = user?.user_type || req.user.user_type;
 
-  if (req.user.user_type === 'issuer' && !isDemoRequest) {
-    try {
-      const result = await pool.query(
+    if (!['issuer', 'admin'].includes(effectiveUserType)) {
+      return res.status(403).json({ error: 'Issuer access required' });
+    }
+
+    req.user.user_type = effectiveUserType;
+    req.user.is_active = user?.is_active ?? req.user.is_active;
+
+    const isDemoRequest = process.env.DEMO_MODE === 'true' || Boolean(req.headers['x-demo-user-type']);
+
+    if (effectiveUserType === 'issuer' && !isDemoRequest) {
+      const profileResult = await pool.query(
         'SELECT status FROM issuer_profiles WHERE user_id = $1 LIMIT 1',
         [req.user.id]
       );
 
-      if (!result.rows[0] || result.rows[0].status !== 'approved') {
+      if (!profileResult.rows[0] || profileResult.rows[0].status !== 'approved') {
         return res.status(403).json({ error: 'Approved issuer access required' });
       }
-    } catch (err) {
-      console.error('Issuer verification failed:', err.message);
-      return res.status(500).json({ error: 'Unable to verify issuer approval' });
     }
-  }
 
-  next();
+    next();
+  } catch (err) {
+    console.error('Issuer verification failed:', err.message);
+    return res.status(500).json({ error: 'Unable to verify issuer approval' });
+  }
 }
 
 function logAudit(userId, actionType, resourceType = null, resourceId = null, status = 'success', errorMsg = null, metadata = {}) {

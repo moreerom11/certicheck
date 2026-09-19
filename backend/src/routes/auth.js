@@ -110,18 +110,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const isOtpVerified = await OTP.isVerified(email, 'signup');
-    if (isOtpVerified) {
-      // OTP was already verified earlier
-    } else if (!otp) {
-      return res.status(400).json({ error: 'Signup OTP is required' });
-    } else {
-      const verifiedOtp = await OTP.verify(email, otp, 'signup');
-      if (!verifiedOtp) {
-        await OTP.incrementAttempts(email, otp, 'signup');
-        return res.status(401).json({ error: 'Invalid or expired OTP' });
-      }
-    }
+    // OTP removed: allow direct registration without OTP verification
 
     const existingUser = await User.findByEmail(email);
     if (existingUser) {
