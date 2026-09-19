@@ -10,12 +10,14 @@ router.post('/submit', verifyToken, async (req, res) => {
   try {
     const { orgName, orgType, website, contactName, contactEmail, contactRole, volume, useCase, wallet } = req.body;
 
-    if (!orgName || !contactName || !contactEmail) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!orgName || !contactName) {
+      return res.status(400).json({ error: 'Organization and contact name are required' });
     }
 
+    const normalizedEmail = Application.normalizeIssuerEmail(contactEmail, contactName);
+
     const app = await Application.create(
-      req.user.id, orgName, orgType, website, contactName, contactEmail, contactRole, volume, useCase, wallet
+      req.user.id, orgName, orgType, website, contactName, normalizedEmail, contactRole, volume, useCase, wallet
     );
 
     await logAudit(req.user.id, 'APPLICATION_SUBMIT', 'application', app.id, 'success');

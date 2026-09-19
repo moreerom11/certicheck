@@ -5,11 +5,27 @@ function showAppError(message) {
   try {
     let el = document.getElementById('appErrorBanner');
     if (!el) {
-      // OTP verification step removed: immediate registration flow used instead
-        a: "Yes. A fully documented REST API and TypeScript SDK are available. See the Resources page for details." },
-    ],
-  },
-];
+      el = document.createElement('div');
+      el.id = 'appErrorBanner';
+      el.style.position = 'fixed';
+      el.style.top = '12px';
+      el.style.right = '12px';
+      el.style.maxWidth = '420px';
+      el.style.background = '#fee2e2';
+      el.style.color = '#991b1b';
+      el.style.border = '1px solid #fecaca';
+      el.style.padding = '12px 14px';
+      el.style.borderRadius = '12px';
+      el.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+      el.style.zIndex = '9999';
+      el.style.fontSize = '14px';
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+  } catch (err) {
+    console.error('showAppError failed:', err);
+  }
+}
 
 const API_BASE_URL = (function() {
   // In local dev when the static site is served (eg. via python http.server on 8000),
@@ -232,6 +248,25 @@ function saveDemoAuthSessionWithRole(email, firstName = "Demo", lastName = "User
   user.user_type = role || 'issuer';
   saveAuthSession("demo-token", user);
   return user;
+}
+
+function buildIssuerEmailSuggestion(name = '') {
+  const value = String(name || '').trim();
+  const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '');
+  return slug ? `${slug}@certicheck.com` : 'issuer@certicheck.com';
+}
+
+function normalizeIssuerEmailInput(email, name = '') {
+  const value = String(email || '').trim().toLowerCase();
+  if (!value) {
+    return buildIssuerEmailSuggestion(name);
+  }
+
+  if (!value.endsWith('@certicheck.com')) {
+    return buildIssuerEmailSuggestion(name || value.split('@')[0]);
+  }
+
+  return value;
 }
 
 function getIssuerIssuedCertificates() {
@@ -2100,6 +2135,43 @@ let applyStep = 1;
   };
 
   volumeSelect?.addEventListener("change", toggleCustomVolume);
+  const contactName = document.getElementById("contactName");
+  const contactEmail = document.getElementById("contactEmail");
+
+  if (contactName && contactEmail) {
+    const syncIssuerSuggestion = () => {
+      if (!contactEmail.value.trim() || contactEmail.dataset.autoSuggested === '1') {
+        contactEmail.value = buildIssuerEmailSuggestion(contactName.value);
+        contactEmail.dataset.autoSuggested = '1';
+      }
+    };
+
+    contactName.addEventListener('input', () => {
+      if (!contactEmail.value.trim() || contactEmail.dataset.autoSuggested === '1') {
+        syncIssuerSuggestion();
+      }
+    });
+
+    contactEmail.addEventListener('focus', () => {
+      if (!contactEmail.value.trim()) {
+        syncIssuerSuggestion();
+      }
+    });
+
+    contactEmail.addEventListener('blur', () => {
+      const value = String(contactEmail.value || '').trim();
+      if (!value) {
+        contactEmail.value = buildIssuerEmailSuggestion(contactName.value);
+        contactEmail.dataset.autoSuggested = '1';
+        return;
+      }
+      if (!value.endsWith('@certicheck.com')) {
+        contactEmail.value = buildIssuerEmailSuggestion(contactName.value || value.split('@')[0]);
+        contactEmail.dataset.autoSuggested = '1';
+      }
+    });
+  }
+
   toggleCustomVolume();
 
   nextBtn.addEventListener("click", () => {
@@ -2151,6 +2223,17 @@ function submitApplyForm() {
   }
 
   const authToken = localStorage.getItem('certicheck_auth_token');
+  const normalizedEmail = normalizeIssuerEmailInput(email, name);
+
+  if (!email && !name) {
+    alert('Please complete your issuer application details.');
+    return;
+  }
+
+  if (!normalizedEmail.endsWith('@certicheck.com')) {
+    alert(`Issuer email must end with @certicheck.com. Suggested: ${buildIssuerEmailSuggestion(name || email)}`);
+    return;
+  }
   
   // Prepare application data
   const applicationData = {
@@ -2158,7 +2241,7 @@ function submitApplyForm() {
     orgType: document.getElementById("orgType")?.value || "",
     website: document.getElementById("orgWebsite")?.value.trim() || "",
     contactName: name,
-    contactEmail: email,
+    contactEmail: normalizedEmail,
     contactRole: document.getElementById("contactRole")?.value.trim() || "",
     useCase: document.getElementById("useCase")?.value.trim() || "",
     volume: volumeText,

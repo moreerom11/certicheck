@@ -22,7 +22,7 @@ async function ensureSeededAccounts() {
       userType: 'admin'
     },
     {
-      email: process.env.ISSUER_EMAIL || 'issuer@oau.edu.ng',
+      email: process.env.ISSUER_EMAIL || 'issuer@certicheck.com',
       password: process.env.ISSUER_PASSWORD || 'issuer123',
       firstName: 'Issuer',
       lastName: 'User',
@@ -259,6 +259,24 @@ router.post('/login', async (req, res) => {
     if (!user) {
       await logAudit(null, 'LOGIN', 'user', null, 'failed', 'Invalid credentials');
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (user.user_type === 'issuer') {
+      if (!user.email.toLowerCase().endsWith('@certicheck.com')) {
+        await logAudit(user.id, 'LOGIN', 'user', user.id, 'failed', 'Issuer email must use @certicheck.com');
+        return res.status(403).json({ error: 'Issuer accounts must use a @certicheck.com email.' });
+      }
+
+      const profileRes = await pool.query(
+        'SELECT status FROM issuer_profiles WHERE user_id = $1 LIMIT 1',
+        [user.id]
+      );
+      const profileStatus = profileRes.rows[0]?.status || 'pending';
+
+      if (profileStatus !== 'approved') {
+        await logAudit(user.id, 'LOGIN', 'user', user.id, 'failed', `Issuer approval status: ${profileStatus}`);
+        return res.status(403).json({ error: 'Issuer access is still pending approval.' });
+      }
     }
 
     if (!user.is_active) {
