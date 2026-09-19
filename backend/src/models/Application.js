@@ -106,7 +106,7 @@ class Application {
 
       if (profile.rows[0]?.user_id) {
         await pool.query(
-          `UPDATE users SET user_type = 'issuer', updated_at = NOW() WHERE id = $1`,
+          `UPDATE users SET user_type = 'issuer', is_active = TRUE, updated_at = NOW() WHERE id = $1`,
           [profile.rows[0].user_id]
         );
       }
@@ -128,6 +128,18 @@ class Application {
         `UPDATE issuer_profiles SET status = 'rejected', updated_at = NOW() WHERE id = $1`,
         [result.rows[0].issuer_id]
       );
+
+      const profile = await pool.query(
+        'SELECT user_id FROM issuer_profiles WHERE id = $1 LIMIT 1',
+        [result.rows[0].issuer_id]
+      );
+
+      if (profile.rows[0]?.user_id) {
+        await pool.query(
+          `UPDATE users SET is_active = FALSE, updated_at = NOW() WHERE id = $1`,
+          [profile.rows[0].user_id]
+        );
+      }
     }
 
     return result.rows[0];

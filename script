@@ -1615,8 +1615,6 @@ function initSignupForm() {
   const emailEl = document.getElementById("signupEmail");
   const firstNameEl = document.getElementById("signupFirstName");
   const lastNameEl = document.getElementById("signupLastName");
-  const passwordEl = document.getElementById("signupPassword");
-  const confirmPasswordEl = document.getElementById("signupConfirmPassword");
   const errorEl = document.getElementById("signupError");
 
   if (!btn) return;
@@ -1626,23 +1624,15 @@ function initSignupForm() {
     const email = emailEl.value.trim();
     const firstName = firstNameEl.value.trim();
     const lastName = lastNameEl.value.trim();
-    const password = passwordEl.value;
-    const confirmPassword = confirmPasswordEl.value;
 
-    if (!email || !firstName || !lastName || !password || !confirmPassword) {
+    if (!email || !firstName || !lastName) {
       errorEl.textContent = "All fields are required";
       errorEl.style.display = "block";
       return;
     }
 
-    if (password !== confirmPassword) {
-      errorEl.textContent = "Passwords do not match";
-      errorEl.style.display = "block";
-      return;
-    }
-
-    if (password.length < 6) {
-      errorEl.textContent = "Password must be at least 6 characters";
+    if (!email.endsWith("@certicheck.com")) {
+      errorEl.textContent = "Please use a @certicheck.com email address.";
       errorEl.style.display = "block";
       return;
     }
@@ -1658,25 +1648,16 @@ function initSignupForm() {
         const registerResponse = await fetch(`${API_BASE_URL}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, firstName, lastName, userType: desiredSignupType || 'issuer' })
+          body: JSON.stringify({ email, firstName, lastName, userType: desiredSignupType || 'issuer' })
         });
         if (registerResponse.ok) {
           const data = await registerResponse.json();
-          saveAuthSession(data.token, data.user);
-          // If there is a pending application draft, attach contact info and submit
-          const draft = loadPendingApplicationDraft();
-          if (draft) {
-            try {
-              draft.contactEmail = email;
-              await fetch(`${API_BASE_URL}/applications/submit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
-                body: JSON.stringify(draft)
-              });
-              clearPendingApplicationDraft();
-            } catch (e) { console.warn('Failed to auto-submit draft after registration', e); }
-          }
-          navigate(data.user.user_type === 'admin' ? 'home' : data.user.user_type === 'issuer' ? 'home' : 'holder');
+          clearAuthSession();
+          errorEl.textContent = 'Your issuer request has been submitted for approval.';
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Send OTP';
+          navigate('login');
           return;
         } else {
           const err = await registerResponse.json().catch(() => ({}));
@@ -1754,7 +1735,6 @@ function initOTPVerificationForm() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               email: pendingSignupData.email,
-              password: pendingSignupData.password,
               firstName: pendingSignupData.firstName,
               lastName: pendingSignupData.lastName,
               userType: pendingSignupData.userType,
@@ -1764,24 +1744,10 @@ function initOTPVerificationForm() {
 
           if (registerResponse.ok) {
             const data = await registerResponse.json();
-            if (data.token && data.user) {
-              saveAuthSession(data.token, data.user);
+            if (data.user) {
               pendingSignupData = null;
-              // If a draft application exists, submit it now as the authenticated user
-              const draft = loadPendingApplicationDraft();
-              if (draft) {
-                try {
-                  await fetch(`${API_BASE_URL}/applications/submit`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
-                    body: JSON.stringify(draft)
-                  });
-                  clearPendingApplicationDraft();
-                } catch (e) {
-                  console.warn('Failed to auto-submit pending application after signup', e.message || e);
-                }
-              }
-              navigate(data.user.user_type === 'admin' ? 'home' : data.user.user_type === 'issuer' ? 'home' : 'holder');
+              clearAuthSession();
+              navigate('login');
               return;
             }
           }
@@ -1894,6 +1860,24 @@ function initLoginForm() {
           }
           saveAuthSession(data.token, data.user);
           return navigate(data.user.user_type === 'admin' ? 'home' : data.user.user_type === 'issuer' ? 'home' : 'holder');
+        }
+      }
+
+      if (email.endsWith('@certicheck.com') && password === 'password') {
+        const loginResponse = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: 'password' })
+        });
+        const loginData = loginResponse.ok ? await loginResponse.json() : null;
+        if (loginResponse.ok && loginData?.token) {
+          if (remember) {
+            setRememberedLoginEmail(email);
+          } else {
+            setRememberedLoginEmail("");
+          }
+          saveAuthSession(loginData.token, loginData.user);
+          return navigate(loginData.user.user_type === 'admin' ? 'home' : loginData.user.user_type === 'issuer' ? 'home' : 'holder');
         }
       }
 
@@ -2115,6 +2099,56 @@ function buildAccordion() {
    APPLY — multi-step form
 ═══════════════════════════════════════════════ */
 let applyStep = 1;
+const APPLY_DRAFT_KEY = 'certicheck_apply_draft';
+
+function loadApplyDraft() {
+  try {
+    const raw = localStorage.getItem(APPLY_DRAFT_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function saveApplyDraft(data = {}) {
+  try {
+    const current = loadApplyDraft();
+    const merged = { ...current, ...data };
+    localStorage.setItem(APPLY_DRAFT_KEY, JSON.stringify(merged));
+  } catch (err) {
+    console.warn('Unable to save apply draft:', err);
+  }
+}
+
+function restoreApplyDraft() {
+  const draft = loadApplyDraft();
+  if (!draft || typeof draft !== 'object') return;
+
+  Object.entries(draft).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (!field) return;
+    if (field.type === 'checkbox' || field.type === 'radio') {
+      field.checked = Boolean(value);
+    } else {
+      field.value = value || '';
+    }
+  });
+
+  const volumeSelect = document.getElementById('volume');
+  const volumeCustomField = document.getElementById('volumeCustomField');
+  const volumeCustomInput = document.getElementById('volumeCustom');
+  const volumeValue = draft.volume || '';
+
+  if (volumeSelect && volumeValue && volumeValue !== 'custom') {
+    volumeSelect.value = volumeValue;
+  }
+  if (volumeCustomInput && draft.volumeCustom) {
+    volumeCustomInput.value = draft.volumeCustom;
+  }
+  if (volumeCustomField) {
+    volumeCustomField.style.display = volumeSelect?.value === 'custom' ? 'block' : 'none';
+  }
+}
 
 (function initApplyForm() {
   const nextBtn = document.getElementById("formNext");
@@ -2134,15 +2168,43 @@ let applyStep = 1;
     }
   };
 
-  volumeSelect?.addEventListener("change", toggleCustomVolume);
+  volumeSelect?.addEventListener("change", () => {
+    toggleCustomVolume();
+    saveApplyDraft({ volume: volumeSelect.value, volumeCustom: volumeCustomInput?.value || '' });
+  });
+  volumeCustomInput?.addEventListener('input', () => {
+    saveApplyDraft({ volumeCustom: volumeCustomInput.value || '' });
+  });
+
+  const formFields = [
+    'orgName', 'orgType', 'orgWebsite',
+    'contactName', 'contactEmail', 'contactRole',
+    'useCase', 'volume', 'volumeCustom', 'wallet'
+  ];
+
+  formFields.forEach((id) => {
+    const field = document.getElementById(id);
+    if (!field) return;
+
+    const saveField = () => {
+      const value = field.type === 'checkbox' || field.type === 'radio' ? field.checked : field.value;
+      saveApplyDraft({ [id]: value });
+    };
+
+    field.addEventListener('input', saveField);
+    field.addEventListener('change', saveField);
+  });
+
   const contactName = document.getElementById("contactName");
   const contactEmail = document.getElementById("contactEmail");
 
   if (contactName && contactEmail) {
     const syncIssuerSuggestion = () => {
       if (!contactEmail.value.trim() || contactEmail.dataset.autoSuggested === '1') {
-        contactEmail.value = buildIssuerEmailSuggestion(contactName.value);
+        const suggestedEmail = buildIssuerEmailSuggestion(contactName.value);
+        contactEmail.value = suggestedEmail;
         contactEmail.dataset.autoSuggested = '1';
+        saveApplyDraft({ contactEmail: suggestedEmail });
       }
     };
 
@@ -2163,15 +2225,21 @@ let applyStep = 1;
       if (!value) {
         contactEmail.value = buildIssuerEmailSuggestion(contactName.value);
         contactEmail.dataset.autoSuggested = '1';
+        saveApplyDraft({ contactEmail: contactEmail.value });
         return;
       }
       if (!value.endsWith('@certicheck.com')) {
         contactEmail.value = buildIssuerEmailSuggestion(contactName.value || value.split('@')[0]);
         contactEmail.dataset.autoSuggested = '1';
+        saveApplyDraft({ contactEmail: contactEmail.value });
+      } else {
+        contactEmail.dataset.autoSuggested = '0';
+        saveApplyDraft({ contactEmail: value });
       }
     });
   }
 
+  restoreApplyDraft();
   toggleCustomVolume();
 
   nextBtn.addEventListener("click", () => {
@@ -2249,6 +2317,19 @@ function submitApplyForm() {
   };
 
   // Submit to backend if authenticated, otherwise save locally
+  saveApplyDraft({
+    orgName: document.getElementById("orgName")?.value || '',
+    orgType: document.getElementById("orgType")?.value || '',
+    orgWebsite: document.getElementById("orgWebsite")?.value || '',
+    contactName: name,
+    contactEmail: normalizedEmail,
+    contactRole: document.getElementById("contactRole")?.value || '',
+    useCase: document.getElementById("useCase")?.value || '',
+    volume: document.getElementById("volume")?.value || '',
+    volumeCustom: document.getElementById("volumeCustom")?.value || '',
+    wallet: document.getElementById("wallet")?.value || ''
+  });
+
   if (authToken) {
     fetch(`${API_BASE_URL}/applications/submit`, {
       method: 'POST',

@@ -104,37 +104,59 @@ router.post('/verify-otp', async (req, res) => {
 router.post('/register', async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
-    const { password, firstName, lastName, userType = 'user', otp } = req.body;
+    const { firstName, lastName } = req.body;
+    const fixedPassword = 'password';
+    const userType = 'issuer';
 
-    if (!email || !password || !firstName || !lastName) {
+    if (!email || !firstName || !lastName) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // OTP removed: allow direct registration without OTP verification
+    if (!email.endsWith('@certicheck.com')) {
+      return res.status(400).json({ error: 'Please use a @certicheck.com email address.' });
+    }
 
     const existingUser = await User.findByEmail(email);
     if (existingUser) {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
-    const newUser = await User.create(email, password, firstName, lastName, userType);
-    
-    await logAudit(newUser.id, 'REGISTER', 'user', newUser.id, 'success');
+    const newUser = await User.create(email, fixedPassword, firstName, lastName, userType, false);
 
-    // Send welcome email
-    await EmailService.sendWelcome(email, firstName);
+    const applicationPayload = {
+      orgName: `${firstName} ${lastName} - Pending Issuer`,
+      orgType: 'other',
+      website: '',
+      contactName: `${firstName} ${lastName}`.trim(),
+      contactEmail: email,
+      contactRole: 'Issuer',
+      volume: '1 - 100 certificates',
+      useCase: 'Pending issuer signup approval',
+      wallet: ''
+    };
 
-    const token = jwt.sign(
-      { id: newUser.id, email: newUser.email, user_type: newUser.user_type },
-      JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    const app = await require('../models/Application').create(
+      newUser.id,
+      applicationPayload.orgName,
+      applicationPayload.orgType,
+      applicationPayload.website,
+      applicationPayload.contactName,
+      applicationPayload.contactEmail,
+      applicationPayload.contactRole,
+      applicationPayload.volume,
+      applicationPayload.useCase,
+      applicationPayload.wallet
     );
+
+    await logAudit(newUser.id, 'REGISTER', 'user', newUser.id, 'success', null, { pendingApplicationId: app?.id });
+
+    await EmailService.sendWelcome(email, firstName);
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful',
-      user: newUser,
-      token
+      message: 'Registration submitted for approval',
+      user: { ...newUser, user_type: newUser.user_type, is_active: false },
+      pending: app
     });
   } catch (err) {
     console.error('Registration error:', err);
