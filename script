@@ -793,7 +793,6 @@ function navigate(page) {
 }
 
 function initAuthPageForms(page) {
-  if (page === "verify-otp") initOTPVerificationForm();
   if (page === "verify-reset-otp") initVerifyResetOTPForm();
 }
 
@@ -1639,12 +1638,11 @@ function initSignupForm() {
 
     try {
       btn.disabled = true;
-      btn.textContent = "Sending OTP...";
+      btn.textContent = "Submitting...";
 
-      // Direct registration (OTP removed): create account immediately
       try {
         btn.disabled = true;
-        btn.textContent = 'Creating account...';
+        btn.textContent = 'Submitting application...';
         const registerResponse = await fetch(`${API_BASE_URL}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1656,147 +1654,31 @@ function initSignupForm() {
           errorEl.textContent = 'Your issuer request has been submitted for approval.';
           errorEl.style.display = 'block';
           btn.disabled = false;
-          btn.textContent = 'Send OTP';
+          btn.textContent = 'Request submitted';
           navigate('login');
           return;
         } else {
           const err = await registerResponse.json().catch(() => ({}));
-          errorEl.textContent = err.error || 'Registration failed';
+          errorEl.textContent = err.error || 'Request failed';
           errorEl.style.display = 'block';
           btn.disabled = false;
-          btn.textContent = 'Create account';
+          btn.textContent = 'Submit request';
           return;
         }
       } catch (e) {
         console.warn('Registration request failed', e);
-        errorEl.textContent = 'Registration failed';
+        errorEl.textContent = 'Request failed';
         errorEl.style.display = 'block';
         btn.disabled = false;
-        btn.textContent = 'Create account';
+        btn.textContent = 'Submit request';
         return;
       }
       
     } catch (err) {
-      errorEl.textContent = "Demo signup is ready. Use code 000000 to continue.";
+      errorEl.textContent = "Your request could not be submitted.";
       errorEl.style.display = "block";
       btn.disabled = false;
-      btn.textContent = "Send OTP";
-    }
-  });
-}
-
-function initOTPVerificationForm() {
-  const btn = document.getElementById("verifyOtpBtn");
-  const otpInput = document.getElementById("otpCode");
-  const resendBtn = document.getElementById("resendOtpBtn");
-  const errorEl = document.getElementById("otpError");
-
-  if (!btn || btn.dataset.bound === "true" || !pendingSignupData) return;
-  btn.dataset.bound = "true";
-
-  // Auto-focus on input
-  otpInput?.focus();
-
-  // Handle Enter key
-  otpInput?.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") btn.click();
-  });
-
-  btn.addEventListener("click", async () => {
-    errorEl.style.display = "none";
-    const otp = otpInput.value.trim();
-
-    if (!otp || otp.length !== 6) {
-      errorEl.textContent = "Please enter a valid 6-digit code";
-      errorEl.style.display = "block";
-      return;
-    }
-
-    try {
-      btn.disabled = true;
-      btn.textContent = "Verifying...";
-
-      let verified = false;
-      try {
-        const verifyResponse = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: pendingSignupData.email, otp })
-        });
-        verified = verifyResponse.ok;
-      } catch (err) {
-        console.warn('OTP verification request failed, falling back to demo mode:', err.message);
-      }
-
-      if (verified) {
-        try {
-          const registerResponse = await fetch(`${API_BASE_URL}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: pendingSignupData.email,
-              firstName: pendingSignupData.firstName,
-              lastName: pendingSignupData.lastName,
-              userType: pendingSignupData.userType,
-              otp
-            })
-          });
-
-          if (registerResponse.ok) {
-            const data = await registerResponse.json();
-            if (data.user) {
-              pendingSignupData = null;
-              clearAuthSession();
-              navigate('login');
-              return;
-            }
-          }
-        } catch (registerErr) {
-          console.warn('Registration request failed, falling back to demo mode:', registerErr.message);
-        }
-      }
-
-      const role = pendingSignupData.userType || desiredSignupType || 'issuer';
-      saveDemoAuthSessionWithRole(pendingSignupData.email, pendingSignupData.firstName, pendingSignupData.lastName, role);
-      pendingSignupData = null;
-      navigate(role === 'holder' ? 'holder' : role === 'admin' ? 'home' : 'home');
-    } catch (err) {
-      errorEl.textContent = "Demo signup completed locally.";
-      errorEl.style.display = "block";
-      btn.disabled = false;
-      btn.textContent = "Verify & Create Account";
-    }
-  });
-
-  // Resend OTP
-  resendBtn?.addEventListener("click", async () => {
-    if (!pendingSignupData) return;
-
-    try {
-      resendBtn.disabled = true;
-      resendBtn.textContent = "Resending...";
-
-      try {
-        await fetch(`${API_BASE_URL}/auth/send-otp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: pendingSignupData.email })
-        });
-      } catch {}
-
-      otpInput.value = "";
-      otpInput.focus();
-      errorEl.style.display = "none";
-      resendBtn.textContent = "OTP skipped in demo mode";
-      setTimeout(() => {
-        resendBtn.disabled = false;
-        resendBtn.textContent = "Resend";
-      }, 3000);
-    } catch (err) {
-      errorEl.textContent = "Demo mode: OTP resend is ready.";
-      errorEl.style.display = "block";
-      resendBtn.disabled = false;
-      resendBtn.textContent = "Resend";
+      btn.textContent = "Submit request";
     }
   });
 }
@@ -2150,12 +2032,104 @@ function restoreApplyDraft() {
   }
 }
 
+const CONTACT_ROLE_OPTIONS = {
+  university: [
+    { value: 'Registrar', label: 'Registrar' },
+    { value: 'Vice Chancellor', label: 'Vice Chancellor' },
+    { value: 'Admissions Director', label: 'Admissions Director' },
+    { value: 'Academic Dean', label: 'Academic Dean' },
+    { value: 'Compliance Officer', label: 'Compliance Officer' },
+    { value: 'Other', label: 'Other' }
+  ],
+  college: [
+    { value: 'Dean', label: 'Dean' },
+    { value: 'Registrar', label: 'Registrar' },
+    { value: 'Academic Affairs Lead', label: 'Academic Affairs Lead' },
+    { value: 'Admissions Manager', label: 'Admissions Manager' },
+    { value: 'Compliance Lead', label: 'Compliance Lead' },
+    { value: 'Other', label: 'Other' }
+  ],
+  bootcamp: [
+    { value: 'Founder', label: 'Founder' },
+    { value: 'Academy Director', label: 'Academy Director' },
+    { value: 'Program Manager', label: 'Program Manager' },
+    { value: 'Learning Operations Lead', label: 'Learning Operations Lead' },
+    { value: 'Career Services Lead', label: 'Career Services Lead' },
+    { value: 'Other', label: 'Other' }
+  ],
+  'law-firm': [
+    { value: 'Managing Partner', label: 'Managing Partner' },
+    { value: 'Legal Counsel', label: 'Legal Counsel' },
+    { value: 'Partner', label: 'Partner' },
+    { value: 'Compliance Officer', label: 'Compliance Officer' },
+    { value: 'Operations Head', label: 'Operations Head' },
+    { value: 'Other', label: 'Other' }
+  ],
+  bank: [
+    { value: 'Branch Manager', label: 'Branch Manager' },
+    { value: 'Operations Head', label: 'Operations Head' },
+    { value: 'Compliance Manager', label: 'Compliance Manager' },
+    { value: 'Risk Officer', label: 'Risk Officer' },
+    { value: 'Head of Digital Banking', label: 'Head of Digital Banking' },
+    { value: 'Other', label: 'Other' }
+  ],
+  corporate: [
+    { value: 'Chief Compliance Officer', label: 'Chief Compliance Officer' },
+    { value: 'Operations Director', label: 'Operations Director' },
+    { value: 'HR Manager', label: 'HR Manager' },
+    { value: 'Learning & Development Lead', label: 'Learning & Development Lead' },
+    { value: 'Procurement Lead', label: 'Procurement Lead' },
+    { value: 'Other', label: 'Other' }
+  ],
+  government: [
+    { value: 'Agency Head', label: 'Agency Head' },
+    { value: 'Director of Records', label: 'Director of Records' },
+    { value: 'Registrar', label: 'Registrar' },
+    { value: 'Compliance Lead', label: 'Compliance Lead' },
+    { value: 'Public Affairs Officer', label: 'Public Affairs Officer' },
+    { value: 'Other', label: 'Other' }
+  ],
+  ngo: [
+    { value: 'Program Director', label: 'Program Director' },
+    { value: 'Operations Manager', label: 'Operations Manager' },
+    { value: 'Monitoring & Evaluation Lead', label: 'Monitoring & Evaluation Lead' },
+    { value: 'Compliance Officer', label: 'Compliance Officer' },
+    { value: 'Partnerships Lead', label: 'Partnerships Lead' },
+    { value: 'Other', label: 'Other' }
+  ],
+  other: [
+    { value: 'Issuer Admin', label: 'Issuer Admin' },
+    { value: 'Operations Lead', label: 'Operations Lead' },
+    { value: 'Compliance Lead', label: 'Compliance Lead' },
+    { value: 'Program Manager', label: 'Program Manager' },
+    { value: 'Other', label: 'Other' }
+  ]
+};
+
+function populateContactRoleOptions(orgType = '') {
+  const roleSelect = document.getElementById('contactRole');
+  if (!roleSelect) return;
+
+  const type = orgType || document.getElementById('orgType')?.value || 'other';
+  const options = CONTACT_ROLE_OPTIONS[type] || CONTACT_ROLE_OPTIONS.other;
+  const currentValue = roleSelect.value || '';
+
+  roleSelect.innerHTML = '<option value="">Select a role/title</option>' + options.map(option => `
+    <option value="${option.value}">${option.label}</option>
+  `).join('');
+
+  if (currentValue && options.some(option => option.value === currentValue)) {
+    roleSelect.value = currentValue;
+  }
+}
+
 (function initApplyForm() {
   const nextBtn = document.getElementById("formNext");
   const backBtn = document.getElementById("formBack");
   const volumeSelect = document.getElementById("volume");
   const volumeCustomField = document.getElementById("volumeCustomField");
   const volumeCustomInput = document.getElementById("volumeCustom");
+  const orgTypeSelect = document.getElementById("orgType");
 
   if (!nextBtn) return;
 
@@ -2167,6 +2141,12 @@ function restoreApplyDraft() {
       if (!isCustom) volumeCustomInput.value = "";
     }
   };
+
+  orgTypeSelect?.addEventListener('change', () => {
+    populateContactRoleOptions(orgTypeSelect.value);
+    const roleSelect = document.getElementById('contactRole');
+    saveApplyDraft({ orgType: orgTypeSelect.value, contactRole: roleSelect?.value || '' });
+  });
 
   volumeSelect?.addEventListener("change", () => {
     toggleCustomVolume();
@@ -2240,6 +2220,7 @@ function restoreApplyDraft() {
   }
 
   restoreApplyDraft();
+  populateContactRoleOptions(orgTypeSelect?.value || 'other');
   toggleCustomVolume();
 
   nextBtn.addEventListener("click", () => {
@@ -2395,23 +2376,10 @@ function clearPendingApplicationDraft() {
 }
 
 function showSuccessMessage(name, email, volumeText) {
-  document.getElementById(`form-step-${applyStep}`)?.classList.remove("active");
-  document.getElementById("form-step-success")?.classList.add("active");
-  document.getElementById("formActions").style.display = "none";
-
-  const msg = document.getElementById("successMsg");
-  if (msg) {
-    msg.innerHTML = name
-      ? `Thank you, <strong>${name}</strong>. We'll contact <strong>${email || "you"}</strong> within 1–3 business days.`
-      : "Our team will review your application and be in touch within 1–3 business days.";
-
-    if (volumeText) {
-      msg.innerHTML += `<br/><small style="color:var(--text-secondary);margin-top:12px;display:block">Selected volume: ${volumeText}</small>`;
-    }
-  }
-
-  // Mark all steps done
+  clearPendingApplicationDraft();
+  document.getElementById("formActions")?.style.display = "none";
   document.querySelectorAll(".step").forEach(el => el.classList.add("done"));
+  navigate('home');
 }
 
 function loadPendingApplications() {

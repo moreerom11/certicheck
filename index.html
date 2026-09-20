@@ -46,7 +46,6 @@
 
     <div class="nav-actions">
       <button id="themeToggle" class="btn-toggle" aria-label="Toggle dark mode" title="Switch to dark mode"></button>
-      <button class="btn-ghost" data-page="signup">Sign up</button>
       <button class="btn-ghost" data-page="login">Login</button>
     </div>
   </nav>
@@ -92,11 +91,6 @@
           <div class="entry-card">
             <div class="entry-title"></div>
             <div class="entry-actions"><button id="homeVerifyBtn" class="btn-primary" data-page="test">Verify now</button></div>
-          </div>
-
-          <div class="entry-card">
-            <div class="entry-title"></div>
-            <div class="entry-actions"><button id="homeGraduateBtn" class="btn-outline" data-page="signup">Sign in / Sign up</button></div>
           </div>
 
           <div class="entry-card">
@@ -334,8 +328,8 @@
   <div id="page-signup" class="page">
     <div class="page-wrap" style="max-width:500px">
       <div class="page-header">
-        <h1 class="page-title">Create Account</h1>
-        <p class="page-desc">Sign up to apply for issuer access or use the platform.</p>
+        <h1 class="page-title">Apply for issuer access</h1>
+        <p class="page-desc">Submit your request to access the Certicheck issuer platform.</p>
       </div>
 
       <div class="form-card">
@@ -352,34 +346,7 @@
           <input class="field-input" id="signupLastName" name="family-name" type="text" autocomplete="family-name" placeholder="Doe"/>
         </div>
         <div id="signupError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
-        <button class="btn-primary" id="signupBtn" style="width:100%">Send OTP</button>
-        <p style="text-align:center;color:var(--text-secondary);margin-top:16px;font-size:13px">
-          Already have an account? <button class="btn-ghost" data-page="login" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer">Login</button>
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════
-       PAGE: OTP VERIFICATION (Signup)
-  ══════════════════════════════════════ -->
-  <div id="page-verify-otp" class="page">
-    <div class="page-wrap" style="max-width:500px">
-      <div class="page-header">
-        <h1 class="page-title">Verify Email</h1>
-        <p class="page-desc" id="otpEmailDesc">Enter the 6-digit code sent to your email.</p>
-      </div>
-
-      <div class="form-card">
-        <div class="field">
-          <label class="field-label" for="otpCode">Verification Code</label>
-          <input class="field-input" id="otpCode" type="text" placeholder="000000" maxlength="6" inputmode="numeric" style="text-align:center;font-size:24px;letter-spacing:4px;font-weight:600;"/>
-        </div>
-        <div id="otpError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
-        <button class="btn-primary" id="verifyOtpBtn" style="width:100%">Verify & Create Account</button>
-        <p style="text-align:center;color:var(--text-secondary);margin-top:16px;font-size:13px">
-          Didn't receive code? <button class="btn-ghost" id="resendOtpBtn" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer">Resend</button>
-        </p>
+        <button class="btn-primary" id="signupBtn" style="width:100%">Submit request</button>
       </div>
     </div>
   </div>
@@ -407,15 +374,9 @@
           <input id="loginRemember" type="checkbox" style="width:16px;height:16px;" />
           <label for="loginRemember" style="margin:0;cursor:pointer;font-size:14px;color:var(--text-secondary);">Remember my email</label>
         </div>
-        <div id="loginHelp" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
-          Email will be remembered on this device when checked. The browser may also auto-suggest your last used email.
-        </div>
         <div id="loginStatus" style="font-size:13px;color:var(--green);margin-bottom:16px;display:none;"></div>
         <div id="loginError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
         <button class="btn-primary" id="loginBtn" style="width:100%">Sign In</button>
-        <p style="text-align:center;color:var(--text-secondary);margin-top:16px;font-size:13px">
-          Don't have an account? <button class="btn-ghost" data-page="signup" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer">Sign up</button>
-        </p>
         <p style="text-align:center;color:var(--text-secondary);margin-top:12px;font-size:13px">
           <button class="btn-ghost" data-page="forgot-password" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer">Forgot password?</button>
         </p>
@@ -535,7 +496,9 @@
           </div>
           <div class="field">
             <label class="field-label" for="contactRole">Role / Title</label>
-            <input class="field-input" id="contactRole" placeholder="e.g. Registrar, CTO" type="text"/>
+            <select class="field-input" id="contactRole">
+              <option value="">Select a role/title</option>
+            </select>
           </div>
         </div>
 
@@ -564,13 +527,6 @@
             <input class="field-input font-mono" id="wallet" placeholder="e.g. 7xKX...mVqP" type="text"/>
             <div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">Connect a wallet later to issue certificates on Solana devnet or mainnet from the issuer dashboard.</div>
           </div>
-        </div>
-
-        <!-- Success -->
-        <div class="form-step" id="form-step-success" style="text-align:center;padding:40px 0">
-          <div class="success-icon">✓</div>
-          <h2 class="font-display" style="font-size:28px;font-weight:800;margin-bottom:12px;color:var(--text-primary)">Application Received</h2>
-          <p style="color:var(--text-secondary);line-height:1.8" id="successMsg">Our team will review your application and be in touch within 1–3 business days.</p>
         </div>
 
         <div class="form-actions" id="formActions">

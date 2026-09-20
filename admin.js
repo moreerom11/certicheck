@@ -37,6 +37,19 @@ function formatDateTime(value) {
 }
 
 function showAdminError(message) {
+  const normalized = String(message || "").trim();
+  if (!normalized) return;
+
+  // Suppress any auth failure notices on the admin page.
+  if (/invalid credentials|this account is not an admin account/i.test(normalized)) {
+    const errorBox = document.getElementById("adminLoginError");
+    if (errorBox) {
+      errorBox.textContent = "";
+      errorBox.style.display = "none";
+    }
+    return;
+  }
+
   const errorBox = document.getElementById("adminLoginError");
   if (!errorBox) return;
   errorBox.textContent = message;
@@ -121,11 +134,22 @@ function renderAdminTabs() {
   const tabs = document.getElementById("adminTabs");
   if (!tabs) return;
 
-  tabs.innerHTML = ADMIN_SECTIONS.map(section => `
-    <button class="admin-tab-button${adminCurrentSection === section.id ? " active" : ""}" data-section="${section.id}">
-      ${section.label}
-    </button>
-  `).join("");
+  const sections = [
+    { id: "pending", label: "Pending approvals" },
+    { id: "rejected", label: "Rejected requests" },
+    { id: "checks", label: "Past certificate checks" },
+    { id: "revoked", label: "Revoked certificates" },
+    { id: "audit", label: "Audit log" }
+  ];
+
+  tabs.innerHTML = sections.map(section => {
+    const isAudit = section.id === "audit";
+    return `
+      <button class="admin-tab-button${adminCurrentSection === section.id ? " active" : ""}${isAudit ? " admin-audit-tab" : ""}" data-section="${section.id}">
+        ${section.label}
+      </button>
+    `;
+  }).join("");
 
   tabs.querySelectorAll("button[data-section]").forEach(button => {
     button.addEventListener("click", () => setAdminSection(button.dataset.section));
@@ -408,7 +432,16 @@ async function loginAdmin(event) {
     localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(data.user));
     setAdminState(true, data.user);
   } catch (err) {
-    showAdminError(err.message);
+    const message = String(err.message || "");
+    if (/invalid credentials|this account is not an admin account/i.test(message)) {
+      const errorBox = document.getElementById("adminLoginError");
+      if (errorBox) {
+        errorBox.textContent = "";
+        errorBox.style.display = "none";
+      }
+      return;
+    }
+    showAdminError(message);
   }
 }
 
