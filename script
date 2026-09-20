@@ -1078,6 +1078,14 @@ function initIssuerDashboard() {
 
   if (!formWrap || !notice || !button) return;
 
+  if (form && !form.dataset.bound) {
+    form.dataset.bound = '1';
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (button) button.click();
+    });
+  }
+
   const token = getAuthToken();
   if (!token) {
     notice.style.display = "block";
@@ -1240,17 +1248,51 @@ function initIssuerDashboard() {
     errorEl.textContent = "";
     resultEl.innerHTML = "";
 
+    const orgType = document.getElementById("issuerOrgType")?.value || "university";
+    const selectedType = document.getElementById("issuerType")?.value || "";
+    const dynamicFields = document.querySelectorAll('#issuerDynamicFields input');
+    const dynamicMeta = {};
+    dynamicFields.forEach(field => {
+      const key = field.id.replace('issuerField_', '');
+      const value = field.value.trim();
+      if (value) dynamicMeta[key] = value;
+    });
+
+    const mediaUpload = document.getElementById('issuerMediaUpload')?.files?.[0] || null;
+    const mediaUrl = document.getElementById('issuerMediaUrl')?.value?.trim() || null;
+
+    let metadataObject = {};
+    const metadataText = document.getElementById("issuerMetadata")?.value?.trim() || "";
+    if (metadataText) {
+      try {
+        metadataObject = JSON.parse(metadataText);
+      } catch (err) {
+        metadataObject = { rawText: metadataText };
+      }
+    }
+
     const payload = {
       certificateId: document.getElementById("issuerCertId")?.value?.trim() || "",
       holderName: document.getElementById("issuerHolderName")?.value?.trim() || "",
       holderEmail: document.getElementById("issuerHolderEmail")?.value?.trim() || "",
-      certificateType: document.getElementById("issuerType")?.value?.trim() || "",
+      organisationType: orgType,
+      certificateType: selectedType,
+      issuerOrganisationType: orgType,
       issuerName: document.getElementById("issuerName")?.value?.trim() || "",
       issuerWallet: document.getElementById("issuerWallet")?.value?.trim() || "",
-      metadata: document.getElementById("issuerMetadata")?.value || null,
+      metadata: {
+        ...metadataObject,
+        ...dynamicMeta,
+        organisationType: orgType,
+        certificateType: selectedType,
+        mediaUrl,
+        mediaUploadName: mediaUpload ? mediaUpload.name : null
+      },
       expiry: document.getElementById("issuerExpiry")?.value || null,
       walletAddress: document.getElementById("issuerWallet")?.value?.trim() || "",
-      issueOnChain: document.getElementById("issuerOnChain")?.checked || false
+      issueOnChain: document.getElementById("issuerOnChain")?.checked || false,
+      mediaUrl,
+      mediaUploadName: mediaUpload ? mediaUpload.name : null
     };
 
     button.disabled = true;
@@ -1655,7 +1697,9 @@ function initSignupForm() {
           errorEl.style.display = 'block';
           btn.disabled = false;
           btn.textContent = 'Request submitted';
-          navigate('login');
+          setTimeout(() => {
+            window.location.href = 'admin.html';
+          }, 400);
           return;
         } else {
           const err = await registerResponse.json().catch(() => ({}));
@@ -2106,6 +2150,125 @@ const CONTACT_ROLE_OPTIONS = {
   ]
 };
 
+const CERTIFICATE_TEMPLATE_OPTIONS = {
+  university: [
+    { value: 'transcript', label: 'Transcript' },
+    { value: 'degree', label: 'Degree Certificate' },
+    { value: 'certificate-of-completion', label: 'Certificate of Completion' },
+    { value: 'honour', label: 'Honours / Distinction' }
+  ],
+  college: [
+    { value: 'transcript', label: 'Transcript' },
+    { value: 'diploma', label: 'Diploma' },
+    { value: 'certificate-of-completion', label: 'Certificate of Completion' },
+    { value: 'study-record', label: 'Academic Record' }
+  ],
+  bootcamp: [
+    { value: 'completion', label: 'Completion Certificate' },
+    { value: 'skills-badge', label: 'Skills Badge' },
+    { value: 'portfolio-proof', label: 'Portfolio / Project Proof' },
+    { value: 'achievement', label: 'Achievement Award' }
+  ],
+  'law-firm': [
+    { value: 'will', label: 'Last Will & Testament' },
+    { value: 'legal-opinion', label: 'Legal Opinion' },
+    { value: 'power-of-attorney', label: 'Power of Attorney' },
+    { value: 'estate-certificate', label: 'Estate Certificate' }
+  ],
+  bank: [
+    { value: 'account-opening', label: 'Account Opening Certificate' },
+    { value: 'loan-approval', label: 'Loan Approval Notice' },
+    { value: 'compliance', label: 'Compliance Certificate' },
+    { value: 'statement', label: 'Financial Statement' }
+  ],
+  corporate: [
+    { value: 'employee-certificate', label: 'Employee Certificate' },
+    { value: 'training', label: 'Training Certificate' },
+    { value: 'vendor-approval', label: 'Vendor Approval' },
+    { value: 'compliance', label: 'Compliance Certificate' }
+  ],
+  government: [
+    { value: 'permit', label: 'Permit / License' },
+    { value: 'clearance', label: 'Clearance Certificate' },
+    { value: 'registration', label: 'Registration Certificate' },
+    { value: 'compliance', label: 'Compliance Certificate' }
+  ],
+  ngo: [
+    { value: 'program-participation', label: 'Program Participation Certificate' },
+    { value: 'service-attestation', label: 'Service Attestation' },
+    { value: 'impact-report', label: 'Impact Report Certificate' },
+    { value: 'volunteer', label: 'Volunteer Certificate' }
+  ],
+  other: [
+    { value: 'custom', label: 'Custom Certificate' },
+    { value: 'attestation', label: 'Attestation' },
+    { value: 'verification', label: 'Verification Certificate' }
+  ]
+};
+
+const CERTIFICATE_FIELD_MAP = {
+  university: {
+    transcript: [
+      { id: 'studentName', label: 'Student Name', type: 'text', placeholder: 'Jane Doe' },
+      { id: 'department', label: 'Department', type: 'text', placeholder: 'Computer Science' },
+      { id: 'cgpa', label: 'CGPA / Grade', type: 'text', placeholder: '4.00 / 5.00' },
+      { id: 'completionDate', label: 'Date of Completion', type: 'date' },
+      { id: 'matricNo', label: 'Matric Number', type: 'text', placeholder: 'CSC/2020/0001' }
+    ],
+    degree: [
+      { id: 'studentName', label: 'Student Name', type: 'text', placeholder: 'Jane Doe' },
+      { id: 'course', label: 'Course / Programme', type: 'text', placeholder: 'BSc Computer Science' },
+      { id: 'graduationDate', label: 'Graduation Date', type: 'date' },
+      { id: 'classOfDegree', label: 'Class of Degree', type: 'text', placeholder: 'First Class Honours' }
+    ],
+    'certificate-of-completion': [
+      { id: 'studentName', label: 'Student Name', type: 'text', placeholder: 'Jane Doe' },
+      { id: 'programme', label: 'Programme', type: 'text', placeholder: 'Data Analytics Bootcamp' },
+      { id: 'completionDate', label: 'Completion Date', type: 'date' },
+      { id: 'mentor', label: 'Instructor / Mentor', type: 'text', placeholder: 'Dr. Ada Ken' }
+    ],
+    honour: [
+      { id: 'studentName', label: 'Student Name', type: 'text', placeholder: 'Jane Doe' },
+      { id: 'awardName', label: 'Award Name', type: 'text', placeholder: 'Best Graduating Student' },
+      { id: 'awardDate', label: 'Award Date', type: 'date' },
+      { id: 'department', label: 'Department', type: 'text', placeholder: 'Engineering' }
+    ]
+  },
+  'law-firm': {
+    will: [
+      { id: 'willOwnerName', label: 'Will Owner Name', type: 'text', placeholder: 'John Adebayo' },
+      { id: 'willDate', label: 'Will Date', type: 'date' },
+      { id: 'executorName', label: 'Executor Name', type: 'text', placeholder: 'Mary Adebayo' },
+      { id: 'estateLocation', label: 'Estate / Property Location', type: 'text', placeholder: 'Lagos, Nigeria' }
+    ],
+    'legal-opinion': [
+      { id: 'clientName', label: 'Client Name', type: 'text', placeholder: 'Jane Doe' },
+      { id: 'caseType', label: 'Legal Matter', type: 'text', placeholder: 'Contract Review' },
+      { id: 'opinionDate', label: 'Opinion Date', type: 'date' },
+      { id: 'jurisdiction', label: 'Jurisdiction', type: 'text', placeholder: 'Nigeria' }
+    ],
+    'power-of-attorney': [
+      { id: 'grantorName', label: 'Grantor Name', type: 'text', placeholder: 'Amanda Brooks' },
+      { id: 'attorneyName', label: 'Attorney Name', type: 'text', placeholder: 'Samuel Brooks' },
+      { id: 'effectiveDate', label: 'Effective Date', type: 'date' },
+      { id: 'authorityScope', label: 'Authority Scope', type: 'text', placeholder: 'Property and financial management' }
+    ],
+    'estate-certificate': [
+      { id: 'deceasedName', label: 'Deceased Name', type: 'text', placeholder: 'Ada Okafor' },
+      { id: 'estateReference', label: 'Estate Reference', type: 'text', placeholder: 'EST-2026-011' },
+      { id: 'distributionDate', label: 'Distribution Date', type: 'date' },
+      { id: 'beneficiaryName', label: 'Primary Beneficiary', type: 'text', placeholder: 'Emmanuel Okafor' }
+    ]
+  },
+  default: {
+    custom: [
+      { id: 'certificateTitle', label: 'Certificate Title', type: 'text', placeholder: 'Certificate of Achievement' },
+      { id: 'holderName', label: 'Holder Name', type: 'text', placeholder: 'Jane Doe' },
+      { id: 'issueDate', label: 'Issue Date', type: 'date' }
+    ]
+  }
+};
+
 function populateContactRoleOptions(orgType = '') {
   const roleSelect = document.getElementById('contactRole');
   if (!roleSelect) return;
@@ -2123,6 +2286,46 @@ function populateContactRoleOptions(orgType = '') {
   }
 }
 
+function populateCertificateTypeOptions(orgType = '') {
+  const typeSelect = document.getElementById('issuerType');
+  const dynamicFields = document.getElementById('issuerDynamicFields');
+  if (!typeSelect) return;
+
+  const resolvedType = orgType || document.getElementById('issuerOrgType')?.value || 'university';
+  const options = CERTIFICATE_TEMPLATE_OPTIONS[resolvedType] || CERTIFICATE_TEMPLATE_OPTIONS.other;
+  const currentValue = typeSelect.value || options[0].value;
+
+  typeSelect.innerHTML = options.map(option => `
+    <option value="${option.value}">${option.label}</option>
+  `).join('');
+
+  typeSelect.value = options.some(option => option.value === currentValue) ? currentValue : options[0].value;
+  const selected = typeSelect.value;
+
+  const fields = CERTIFICATE_FIELD_MAP[resolvedType]?.[selected] || CERTIFICATE_FIELD_MAP.default?.[selected] || [];
+  if (dynamicFields) {
+    dynamicFields.innerHTML = fields.map(field => `
+      <div class="field">
+        <label class="field-label" for="issuerField_${field.id}">${field.label}</label>
+        <input class="field-input" id="issuerField_${field.id}" type="${field.type}" placeholder="${field.placeholder || ''}" ${field.type === 'date' ? '' : ''} />
+      </div>
+    `).join('');
+  }
+
+  typeSelect.onchange = () => {
+    const nextSelected = typeSelect.value;
+    const nextFields = CERTIFICATE_FIELD_MAP[resolvedType]?.[nextSelected] || CERTIFICATE_FIELD_MAP.default?.[nextSelected] || [];
+    if (dynamicFields) {
+      dynamicFields.innerHTML = nextFields.map(field => `
+        <div class="field">
+          <label class="field-label" for="issuerField_${field.id}">${field.label}</label>
+          <input class="field-input" id="issuerField_${field.id}" type="${field.type}" placeholder="${field.placeholder || ''}" />
+        </div>
+      `).join('');
+    }
+  };
+}
+
 (function initApplyForm() {
   const nextBtn = document.getElementById("formNext");
   const backBtn = document.getElementById("formBack");
@@ -2130,6 +2333,7 @@ function populateContactRoleOptions(orgType = '') {
   const volumeCustomField = document.getElementById("volumeCustomField");
   const volumeCustomInput = document.getElementById("volumeCustom");
   const orgTypeSelect = document.getElementById("orgType");
+  const issuerOrgType = document.getElementById("issuerOrgType");
 
   if (!nextBtn) return;
 
@@ -2146,6 +2350,10 @@ function populateContactRoleOptions(orgType = '') {
     populateContactRoleOptions(orgTypeSelect.value);
     const roleSelect = document.getElementById('contactRole');
     saveApplyDraft({ orgType: orgTypeSelect.value, contactRole: roleSelect?.value || '' });
+  });
+
+  issuerOrgType?.addEventListener('change', () => {
+    populateCertificateTypeOptions(issuerOrgType.value);
   });
 
   volumeSelect?.addEventListener("change", () => {
@@ -2221,6 +2429,7 @@ function populateContactRoleOptions(orgType = '') {
 
   restoreApplyDraft();
   populateContactRoleOptions(orgTypeSelect?.value || 'other');
+  populateCertificateTypeOptions(issuerOrgType?.value || 'university');
   toggleCustomVolume();
 
   nextBtn.addEventListener("click", () => {
@@ -2350,18 +2559,15 @@ function saveApplicationLocally(applicationData) {
     status: "pending"
   };
 
-  // Instead of saving a local anonymous application, store it as a draft
-  // and prompt the user to sign up/login so the application is linked to their account.
   try {
     localStorage.setItem('certicheck_pending_application_draft', JSON.stringify(applicationData));
-    // Pre-fill signup flow and direct user to signup to continue
-    desiredSignupType = 'issuer';
-    navigate('signup');
   } catch (e) {
     const apps = loadPendingApplications();
     apps.push(application);
     savePendingApplications(apps);
   }
+
+  window.location.href = 'admin.html';
 }
 
 function loadPendingApplicationDraft() {
@@ -2377,9 +2583,33 @@ function clearPendingApplicationDraft() {
 
 function showSuccessMessage(name, email, volumeText) {
   clearPendingApplicationDraft();
-  document.getElementById("formActions")?.style.display = "none";
+
+  const formActions = document.getElementById("formActions");
+  if (formActions) formActions.style.display = "none";
+
+  const stepContainer = document.getElementById("applySteps");
+  if (stepContainer) stepContainer.style.display = "none";
+
   document.querySelectorAll(".step").forEach(el => el.classList.add("done"));
-  navigate('home');
+
+  const formCard = document.getElementById("applyFormCard");
+  if (formCard) {
+    formCard.innerHTML = `
+      <div style="padding:20px 8px 8px; text-align:center;">
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:rgba(16,185,129,0.12);color:var(--green);font-size:32px;margin-bottom:16px;">✓</div>
+        <div class="page-tag" style="margin:0 auto 10px;display:inline-block">Application submitted</div>
+        <h3 style="margin:0 0 10px;font-size:28px;line-height:1.2">Application submitted</h3>
+        <p style="margin:0;color:var(--text-secondary);font-size:15px;line-height:1.6;max-width:480px;margin-inline:auto;">
+          Thanks${name ? `, ${name}` : ''}. Your issuer application has been received and is now pending review.
+          We will contact you at ${email || 'your email'} once it has been processed.
+        </p>
+      </div>
+    `;
+  }
+
+  setTimeout(() => {
+    window.location.href = 'admin.html';
+  }, 1000);
 }
 
 function loadPendingApplications() {

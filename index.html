@@ -551,8 +551,9 @@
       <div class="form-card">
         <div id="issuerNotice" class="alert alert-info">Sign in to issue certificates.</div>
         <div id="issuerFormWrap" style="display:none">
+          <form id="issuerIssueForm" novalidate>
             <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
-              <button id="connectWalletBtn" class="btn-ghost">Connect Wallet (Phantom)</button>
+              <button id="connectWalletBtn" class="btn-ghost" type="button">Connect Wallet (Phantom)</button>
               <div id="connectedWalletBadge" style="font-family:var(--font-mono);color:var(--text-secondary)"></div>
             </div>
 
@@ -560,48 +561,73 @@
               <h4 style="margin:0 0 8px 0">Issued Certificates</h4>
               <div id="issuerCertificatesList" style="border:1px dashed rgba(0,0,0,0.06);padding:12px;border-radius:8px;background:var(--card-bg);min-height:60px">No certificates issued yet.</div>
             </div>
-          <div class="field">
-            <label class="field-label" for="issuerCertId">Certificate ID</label>
-            <input class="field-input" id="issuerCertId" placeholder="CERT-SOL-2026-001" type="text" value="CERT-SOL-2026-001"/>
-          </div>
-          <div class="field">
-            <label class="field-label" for="issuerHolderName">Holder Name</label>
-            <input class="field-input" id="issuerHolderName" placeholder="Jane Doe" type="text" value="Jane Doe"/>
-          </div>
-          <div class="field">
-            <label class="field-label" for="issuerHolderEmail">Holder Email</label>
-            <input class="field-input" id="issuerHolderEmail" placeholder="jane@example.com" type="email" value="jane@example.com"/>
-          </div>
-          <div class="field">
-            <label class="field-label" for="issuerType">Certificate Type</label>
-            <input class="field-input" id="issuerType" placeholder="Degree Certificate" type="text" value="Degree Certificate"/>
-          </div>
-          <div class="field">
-            <label class="field-label" for="issuerMetadata">Metadata (optional)</label>
-            <textarea class="field-input" id="issuerMetadata" rows="3" placeholder='e.g. {"course":"Blockchain 101","grade":"Distinction"}'></textarea>
-          </div>
-          <div class="field">
-            <label class="field-label" for="issuerExpiry">Expiry Date (optional)</label>
-            <input class="field-input" id="issuerExpiry" type="date" />
-          </div>
-          <div class="field">
-            <label class="field-label" for="issuerName">Issuer Name</label>
-            <input class="field-input" id="issuerName" placeholder="Certicheck Issuer" type="text" value="Certicheck Issuer"/>
-          </div>
-          <div class="field">
-            <label class="field-label" for="issuerWallet">Issuer Wallet</label>
-            <input class="field-input font-mono" id="issuerWallet" placeholder="Optional wallet address" type="text"/>
-          </div>
-          <div class="field field-checkbox">
-            <label class="field-label" for="issuerOnChain">
-              <input id="issuerOnChain" type="checkbox" style="margin-right:8px;vertical-align:middle;"/>
-              Issue on-chain (devnet/mainnet)
-            </label>
-            <p style="margin:6px 0 0 28px;color:var(--text-secondary);font-size:13px;">Enable this to submit the certificate to the deployed Anchor program.</p>
-          </div>
-          <div id="issuerError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
-          <button class="btn-primary" id="issuerSubmitBtn" style="width:100%">Issue Certificate</button>
-          <div id="issuerResult" style="margin-top:16px"></div>
+            <div class="field">
+              <label class="field-label" for="issuerCertId">Certificate ID</label>
+              <input class="field-input" id="issuerCertId" placeholder="CERT-SOL-2026-001" type="text" value="CERT-SOL-2026-001"/>
+            </div>
+            <div class="field">
+              <label class="field-label" for="issuerHolderName">Holder Name</label>
+              <input class="field-input" id="issuerHolderName" placeholder="Jane Doe" type="text" value="Jane Doe"/>
+            </div>
+            <div class="field">
+              <label class="field-label" for="issuerHolderEmail">Holder Email</label>
+              <input class="field-input" id="issuerHolderEmail" placeholder="jane@example.com" type="email" value="jane@example.com"/>
+            </div>
+            <div class="field">
+              <label class="field-label" for="issuerOrgType">Organisation Type</label>
+              <select class="field-input" id="issuerOrgType">
+                <option value="university">University</option>
+                <option value="college">College</option>
+                <option value="bootcamp">Bootcamp</option>
+                <option value="law-firm">Law Firm</option>
+                <option value="bank">Bank</option>
+                <option value="corporate">Corporate</option>
+                <option value="government">Government</option>
+                <option value="ngo">NGO</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="issuerType">Certificate Type</label>
+              <select class="field-input" id="issuerType"></select>
+            </div>
+            <div id="issuerDynamicFields" style="display:grid;gap:14px;margin-top:8px;"></div>
+            <div class="field">
+              <label class="field-label" for="issuerMediaUrl">Media Evidence URL (optional)</label>
+              <input class="field-input" id="issuerMediaUrl" placeholder="https://example.com/will-announcement.mp4" type="url"/>
+            </div>
+            <div class="field">
+              <label class="field-label" for="issuerMediaUpload">Upload Media Evidence (optional)</label>
+              <input class="field-input" id="issuerMediaUpload" type="file" accept="video/*,image/*"/>
+              <div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">Use this for a will declaration video, witness statement, or institution-issued media proof.</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="issuerMetadata">Metadata (optional)</label>
+              <textarea class="field-input" id="issuerMetadata" rows="3" placeholder='e.g. {"course":"Blockchain 101","grade":"Distinction"}'></textarea>
+            </div>
+            <div class="field">
+              <label class="field-label" for="issuerExpiry">Expiry Date (optional)</label>
+              <input class="field-input" id="issuerExpiry" type="date" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="issuerName">Issuer Name</label>
+              <input class="field-input" id="issuerName" placeholder="Certicheck Issuer" type="text" value="Certicheck Issuer"/>
+            </div>
+            <div class="field">
+              <label class="field-label" for="issuerWallet">Issuer Wallet</label>
+              <input class="field-input font-mono" id="issuerWallet" placeholder="Optional wallet address" type="text"/>
+            </div>
+            <div class="field field-checkbox">
+              <label class="field-label" for="issuerOnChain">
+                <input id="issuerOnChain" type="checkbox" style="margin-right:8px;vertical-align:middle;"/>
+                Issue on-chain (devnet/mainnet)
+              </label>
+              <p style="margin:6px 0 0 28px;color:var(--text-secondary);font-size:13px;">Enable this to submit the certificate to the deployed Anchor program.</p>
+            </div>
+            <div id="issuerError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
+            <button class="btn-primary" id="issuerSubmitBtn" type="button" style="width:100%">Issue Certificate</button>
+            <div id="issuerResult" style="margin-top:16px"></div>
+          </form>
         </div>
       </div>
     </div>
