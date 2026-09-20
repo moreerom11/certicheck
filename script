@@ -76,12 +76,19 @@ function getStoredUser() {
 }
 
 function getRememberedLoginEmail() {
-  return localStorage.getItem("certicheck_last_login_email") || "";
+  const raw = localStorage.getItem("certicheck_last_login_email") || "";
+  const value = String(raw).trim().toLowerCase();
+  if (!value) return "issuer@certicheck.com";
+  if (value.endsWith("@certicheck.com")) return value;
+  const base = value.split("@")[0] || "issuer";
+  return `${base}@certicheck.com`;
 }
 
 function setRememberedLoginEmail(email) {
   if (email) {
-    localStorage.setItem("certicheck_last_login_email", email);
+    const value = String(email).trim().toLowerCase();
+    const normalized = value.endsWith("@certicheck.com") ? value : `${(value.split("@")[0] || "issuer").trim()}@certicheck.com`;
+    localStorage.setItem("certicheck_last_login_email", normalized);
   } else {
     localStorage.removeItem("certicheck_last_login_email");
   }
@@ -244,10 +251,18 @@ function saveDemoAuthSession(email, firstName = "Demo", lastName = "User") {
 
 // Enhanced demo session helper accepting a role
 function saveDemoAuthSessionWithRole(email, firstName = "Demo", lastName = "User", role = 'issuer') {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const safeRole = normalizedEmail === 'admin@certicheck.com' ? 'admin' : (role === 'holder' ? 'holder' : 'issuer');
   const user = createDemoUser(email, firstName, lastName);
-  user.user_type = role || 'issuer';
+  user.user_type = safeRole;
   saveAuthSession("demo-token", user);
   return user;
+}
+
+function buildSignupEmailSuggestion(firstName = '') {
+  const value = String(firstName || '').trim();
+  const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return slug ? `${slug}@certicheck.com` : 'user@certicheck.com';
 }
 
 function buildIssuerEmailSuggestion(name = '') {
@@ -395,14 +410,13 @@ function renderRoleLandingHome() {
       </div>
     `;
   } else {
-    const institution = 'Obafemi Awolowo University';
-    const recent = stats.recent.length ? stats.recent : [
-      { certificateId: 'CERT-OAU-2026-001', holderName: 'Jane Doe', certificateType: 'Degree Certificate', verificationStatus: 'Valid', issuedAt: '2026-09-18', ipfsCid: 'Qm1...a9s' }
-    ];
+    const userName = [user.firstName, user.lastName].filter(Boolean).join(' ') || (user.email ? user.email.split('@')[0] : 'Issuer');
+    const institution = user.organization_name || user.orgName || userName || 'Issuer';
+    const recent = stats.recent.length ? stats.recent : [];
     const issuedCount = recent.length;
     const activeCount = recent.filter(item => String(item.verificationStatus || item.status || 'Valid').toLowerCase() !== 'revoked').length;
     const revokedCount = recent.filter(item => String(item.verificationStatus || item.status || '').toLowerCase() === 'revoked').length;
-    const verificationsToday = Math.max(8, recent.length * 2 + 3);
+    const verificationsToday = recent.length ? Math.max(8, recent.length * 2 + 3) : 0;
     const walletAddress = getConnectedWalletAddress();
     const walletStatusMarkup = walletAddress
       ? `<div style="display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:rgba(5,150,105,0.08);border:1px solid rgba(5,150,105,0.14);color:#059669;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)}</div>`
@@ -435,13 +449,13 @@ function renderRoleLandingHome() {
     document.getElementById('roleHomeActions').innerHTML = `
       <div class="issuer-dashboard-shell" style="grid-template-columns:320px minmax(0, 1fr); gap:22px; align-items:start;">
         <aside class="issuer-profile-panel" style="padding:24px 20px;">
-          <div class="issuer-avatar">OAU</div>
+          <div class="issuer-avatar">${(institution || userName || 'I').substring(0, 3).toUpperCase()}</div>
           <div class="issuer-name">${institution}</div>
           <div class="issuer-role-badge">ISSUER</div>
 
           <div class="issuer-meta-list">
             <div class="issuer-meta-row"><span>Institution</span><strong>${institution}</strong></div>
-            <div class="issuer-meta-row"><span>Email</span><strong>issuer@oau.edu.ng</strong></div>
+            <div class="issuer-meta-row"><span>Email</span><strong>${user.email || 'Issuer email not available'}</strong></div>
             <div class="issuer-meta-row"><span>Role</span><strong>issuer</strong></div>
             <div class="issuer-meta-row"><span>Wallet</span><strong>${walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)}` : 'Not connected'}</strong></div>
           </div>
@@ -459,10 +473,6 @@ function renderRoleLandingHome() {
             <div>
               <div class="issuer-panel-label">Issuer Dashboard</div>
               <div class="issuer-panel-title">Issue a New Certificate</div>
-            </div>
-            <div class="issuer-action-row">
-              <button class="btn-ghost" data-page="test">Verify</button>
-              <button class="btn-ghost" data-page="issuer">Issue</button>
             </div>
           </div>
 
@@ -1660,14 +1670,39 @@ function initSignupForm() {
 
   if (!btn) return;
 
+  const syncSignupEmail = () => {
+    const firstName = firstNameEl.value.trim();
+    if (!firstName) {
+      emailEl.value = "";
+      return;
+    }
+    const generated = buildSignupEmailSuggestion(firstName);
+    emailEl.value = generated;
+    emailEl.dataset.autoGenerated = '1';
+  };
+
+  if (firstNameEl && emailEl) {
+    firstNameEl.addEventListener('input', syncSignupEmail);
+    firstNameEl.addEventListener('change', syncSignupEmail);
+    if (!emailEl.value.trim()) {
+      syncSignupEmail();
+    }
+  }
+
   btn.addEventListener("click", async () => {
     errorEl.style.display = "none";
     const email = emailEl.value.trim();
     const firstName = firstNameEl.value.trim();
     const lastName = lastNameEl.value.trim();
 
-    if (!email || !firstName || !lastName) {
+    if (!firstName || !lastName) {
       errorEl.textContent = "All fields are required";
+      errorEl.style.display = "block";
+      return;
+    }
+
+    if (!email) {
+      errorEl.textContent = "Email is required";
       errorEl.style.display = "block";
       return;
     }
@@ -1697,9 +1732,6 @@ function initSignupForm() {
           errorEl.style.display = 'block';
           btn.disabled = false;
           btn.textContent = 'Request submitted';
-          setTimeout(() => {
-            window.location.href = 'admin.html';
-          }, 400);
           return;
         } else {
           const err = await registerResponse.json().catch(() => ({}));
@@ -1738,20 +1770,16 @@ function initLoginForm() {
   if (!btn) return;
 
   const savedEmail = getRememberedLoginEmail();
-  if (emailEl && savedEmail) {
-    emailEl.value = savedEmail;
+  const suggestedEmail = savedEmail || "issuer@certicheck.com";
+  if (emailEl) {
+    emailEl.value = suggestedEmail;
   }
   if (rememberEl) {
-    rememberEl.checked = Boolean(savedEmail);
+    rememberEl.checked = Boolean(savedEmail && savedEmail !== "issuer@certicheck.com");
   }
   if (statusEl) {
-    if (savedEmail) {
-      statusEl.textContent = `Auto-suggested email: ${savedEmail}`;
-      statusEl.style.display = "block";
-    } else {
-      statusEl.textContent = "No remembered email yet. Check 'Remember my email' to save it.";
-      statusEl.style.display = "block";
-    }
+    statusEl.textContent = `Auto-suggested email: ${suggestedEmail}`;
+    statusEl.style.display = "block";
   }
 
   btn.addEventListener("click", async () => {
@@ -1770,10 +1798,16 @@ function initLoginForm() {
       btn.disabled = true;
       btn.textContent = "Signing in...";
 
+      if (String(email).trim().toLowerCase() === 'admin@certicheck.com') {
+        errorEl.textContent = 'Admin accounts are only for the admin dashboard.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, loginContext: 'user' })
       });
 
       if (response.ok) {
@@ -1813,13 +1847,24 @@ function initLoginForm() {
         setRememberedLoginEmail("");
       }
 
-      // Demo login: preserve desired role if set
-      const role = desiredSignupType || 'issuer';
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      if (normalizedEmail === 'admin@certicheck.com') {
+        throw new Error('Admin accounts are only for the admin dashboard.');
+      }
+
+      // Demo login is disabled for unreleased issuer accounts.
+      const role = desiredSignupType === 'holder' ? 'holder' : 'issuer';
       saveDemoAuthSessionWithRole(email, 'Demo', 'User', role);
       navigate(role === 'holder' ? 'holder' : 'home');
     } catch (err) {
-      console.warn('Login request failed, falling back to demo mode:', err.message);
-      const role = desiredSignupType || 'issuer';
+      console.warn('Login request failed or demo access was blocked:', err.message);
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      if (normalizedEmail === 'admin@certicheck.com') {
+        errorEl.textContent = 'Admin accounts are only for the admin dashboard.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      const role = desiredSignupType === 'holder' ? 'holder' : 'issuer';
       saveDemoAuthSessionWithRole(email, 'Demo', 'User', role);
       navigate(role === 'holder' ? 'holder' : 'home');
     } finally {
@@ -2506,7 +2551,7 @@ function submitApplyForm() {
     wallet: document.getElementById("wallet")?.value.trim() || ""
   };
 
-  // Submit to backend if authenticated, otherwise save locally
+  // Submit to backend if authenticated, otherwise create a real pending issuer request
   saveApplyDraft({
     orgName: document.getElementById("orgName")?.value || '',
     orgType: document.getElementById("orgType")?.value || '',
@@ -2520,34 +2565,68 @@ function submitApplyForm() {
     wallet: document.getElementById("wallet")?.value || ''
   });
 
+  const submitRequest = (payload, useAuth = false) => fetch(`${API_BASE_URL}/${useAuth ? 'applications/submit' : 'auth/register'}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(useAuth ? { Authorization: `Bearer ${authToken}` } : {})
+    },
+    body: JSON.stringify(payload)
+  }).then(async res => {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to submit issuer request');
+    }
+    return data;
+  });
+
+  const registerPayload = {
+    email: normalizedEmail,
+    firstName: name.split(/\s+/)[0] || 'Issuer',
+    lastName: name.split(/\s+/).slice(1).join(' ') || '',
+    userType: 'issuer',
+    orgName: applicationData.orgName,
+    orgType: applicationData.orgType,
+    website: applicationData.website,
+    contactName: name,
+    contactEmail: normalizedEmail,
+    contactRole: applicationData.contactRole,
+    volume: volumeText,
+    useCase: document.getElementById("useCase")?.value.trim() || '',
+    wallet: document.getElementById("wallet")?.value.trim() || ''
+  };
+
   if (authToken) {
-    fetch(`${API_BASE_URL}/applications/submit`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify(applicationData)
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success || data.id) {
-        showSuccessMessage(name, email, volumeText);
-      } else {
-        console.error('Application submission failed:', data);
+    submitRequest(applicationData, true)
+      .then(data => {
+        if (data.success || data.id) {
+          showSuccessMessage(name, email, volumeText);
+        } else {
+          console.error('Application submission failed:', data);
+          saveApplicationLocally(applicationData);
+          showSuccessMessage(name, email, volumeText);
+        }
+      })
+      .catch(err => {
+        console.error('Error submitting application:', err);
         saveApplicationLocally(applicationData);
         showSuccessMessage(name, email, volumeText);
-      }
-    })
-    .catch(err => {
-      console.error('Error submitting application:', err);
-      saveApplicationLocally(applicationData);
-      showSuccessMessage(name, email, volumeText);
-    });
+      });
   } else {
-    // Not authenticated, save locally
-    saveApplicationLocally(applicationData);
-    showSuccessMessage(name, email, volumeText);
+    submitRequest(registerPayload, false)
+      .then(data => {
+        if (data.success || data.pending) {
+          clearPendingApplicationDraft();
+          showSuccessMessage(name, email, volumeText);
+          return;
+        }
+        throw new Error(data.error || 'Failed to register issuer request');
+      })
+      .catch(err => {
+        console.error('Error creating pending issuer request:', err);
+        saveApplicationLocally(applicationData);
+        showSuccessMessage(name, email, volumeText);
+      });
   }
 }
 
@@ -2566,8 +2645,6 @@ function saveApplicationLocally(applicationData) {
     apps.push(application);
     savePendingApplications(apps);
   }
-
-  window.location.href = 'admin.html';
 }
 
 function loadPendingApplicationDraft() {
@@ -2606,10 +2683,6 @@ function showSuccessMessage(name, email, volumeText) {
       </div>
     `;
   }
-
-  setTimeout(() => {
-    window.location.href = 'admin.html';
-  }, 1000);
 }
 
 function loadPendingApplications() {

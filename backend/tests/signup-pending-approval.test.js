@@ -34,6 +34,24 @@ test('new issuer signups are created inactive and use the fixed password hash', 
   assert.equal(user.is_active, false);
 });
 
+test('generated certicheck emails are unique and numbered for duplicates', async () => {
+  pool.query = async (sql, params) => {
+    if (sql.includes('SELECT email FROM users')) {
+      return {
+        rows: [
+          { email: 'michael@certicheck.com' },
+          { email: 'michael1@certicheck.com' }
+        ]
+      };
+    }
+    return { rows: [] };
+  };
+
+  const generated = await User.resolveUniqueCerticheckEmail('Michael');
+
+  assert.equal(generated, 'michael2@certicheck.com');
+});
+
 test('new issuer signups create a pending approval record for the admin portal', async () => {
   pool.query = async (sql, params) => {
     if (sql.includes('SELECT id FROM issuer_profiles')) {
