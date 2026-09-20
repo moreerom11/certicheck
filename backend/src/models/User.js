@@ -14,8 +14,7 @@ class User {
 
   static async resolveUniqueCerticheckEmail(firstName = '', excludeEmail = null) {
     const base = this.normalizeFirstNameForEmail(firstName);
-    let candidate = base;
-    let suffix = 0;
+    const used = new Set();
     const exclude = this.normalizeEmail(excludeEmail);
 
     const result = await pool.query(
@@ -23,22 +22,23 @@ class User {
       [`${base}%@certicheck.com`]
     );
 
-    const used = new Set(
-      result.rows
-        .map(row => this.normalizeEmail(row.email))
-        .filter(email => email && email.endsWith('@certicheck.com'))
-    );
-
-    if (exclude) {
-      used.delete(exclude);
+    for (const row of result.rows || []) {
+      const email = this.normalizeEmail(row.email);
+      if (email && email.endsWith('@certicheck.com')) {
+        used.add(email);
+      }
     }
 
-    while (used.has(`${candidate}@certicheck.com`)) {
+    if (exclude) used.delete(exclude);
+
+    let candidateBase = base;
+    let suffix = 0;
+    while (used.has(`${candidateBase}@certicheck.com`)) {
       suffix += 1;
-      candidate = `${base}${suffix}`;
+      candidateBase = `${base}${suffix}`;
     }
 
-    return `${candidate}@certicheck.com`;
+    return `${candidateBase}@certicheck.com`;
   }
 
   static async create(email, password, firstName, lastName, userType = 'user', isActive = true) {

@@ -5,6 +5,41 @@ const { verifyToken, verifyAdmin, logAudit } = require('../middleware/auth');
 
 const router = express.Router();
 
+router.get('/status/:referenceId', async (req, res) => {
+  try {
+    const referenceId = String(req.params.referenceId || '').trim();
+    if (!referenceId) {
+      return res.status(400).json({ success: false, error: 'Reference ID is required' });
+    }
+
+    const app = await Application.findByReferenceId(referenceId);
+    if (!app) {
+      return res.status(404).json({ success: false, error: 'Application not found' });
+    }
+
+    res.json({
+      success: true,
+      reference_id: app.reference_id,
+      status: app.status,
+      application: {
+        id: app.id,
+        reference_id: app.reference_id,
+        institution: app.organization_name,
+        email: app.contact_email,
+        name: app.contact_name,
+        status: app.status,
+        submitted_at: app.submitted_at,
+        reviewed_at: app.reviewed_at,
+        organization_type: app.organization_type,
+        contact_role: app.contact_role
+      }
+    });
+  } catch (err) {
+    console.error('Lookup application status error:', err);
+    res.status(500).json({ success: false, error: 'Failed to look up application status' });
+  }
+});
+
 // ── SUBMIT APPLICATION ──────────────────────────────────────────────────────
 router.post('/submit', verifyToken, async (req, res) => {
   try {
@@ -26,13 +61,15 @@ router.post('/submit', verifyToken, async (req, res) => {
       name: contactName,
       orgType,
       contactRole,
-      website
+      website,
+      reference_id: app.reference_id
     });
 
     res.status(201).json({
       success: true,
       message: 'Application submitted successfully',
-      application: app
+      application: app,
+      reference_id: app.reference_id
     });
   } catch (err) {
     console.error('Application submit error:', err);

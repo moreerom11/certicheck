@@ -116,6 +116,16 @@
             <div class="stat-label">On-chain</div>
           </div>
         </div>
+
+        <div class="form-card" style="margin-top:20px;max-width:560px;">
+          <div class="page-tag" style="margin-bottom:10px;display:inline-block;">Approval check</div>
+          <label class="field-label" for="homeStatusReference" style="margin-bottom:8px;display:block;">Check your issuer application status</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <input class="field-input" id="homeStatusReference" type="text" placeholder="Enter your reference ID" style="flex:1;min-width:220px;" />
+            <button class="btn-primary" id="homeCheckStatusBtn" type="button">Check status</button>
+          </div>
+          <div id="homeStatusResult" style="margin-top:14px;"></div>
+        </div>
       </div>
 
           <!-- ══════════════════════════════════════

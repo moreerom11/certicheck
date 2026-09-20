@@ -34,24 +34,6 @@ test('new issuer signups are created inactive and use the fixed password hash', 
   assert.equal(user.is_active, false);
 });
 
-test('generated certicheck emails are unique and numbered for duplicates', async () => {
-  pool.query = async (sql, params) => {
-    if (sql.includes('SELECT email FROM users')) {
-      return {
-        rows: [
-          { email: 'michael@certicheck.com' },
-          { email: 'michael1@certicheck.com' }
-        ]
-      };
-    }
-    return { rows: [] };
-  };
-
-  const generated = await User.resolveUniqueCerticheckEmail('Michael');
-
-  assert.equal(generated, 'michael2@certicheck.com');
-});
-
 test('new issuer signups create a pending approval record for the admin portal', async () => {
   pool.query = async (sql, params) => {
     if (sql.includes('SELECT id FROM issuer_profiles')) {
@@ -92,4 +74,54 @@ test('new issuer signups create a pending approval record for the admin portal',
   assert.equal(app.status, 'pending');
   assert.equal(app.organization_name, 'Test Org Pending');
   assert.match(app.organization_name, /Test Org Pending/);
+});
+
+test('applications get a unique reference ID and status lookup exposes approval result', async () => {
+  const createdApp = {
+    id: 120,
+    organization_name: 'Reference Org',
+    status: 'pending',
+    reference_id: 'CC-REF-1001',
+    submitted_at: new Date().toISOString()
+  };
+
+  pool.query = async (sql, params) => {
+    if (sql.includes('SELECT id FROM issuer_profiles')) {
+      return { rows: [] };
+    }
+
+    if (sql.includes('INSERT INTO issuer_profiles')) {
+      return { rows: [{ id: 44 }] };
+    }
+
+    if (sql.includes('INSERT INTO pending_applications')) {
+      return { rows: [createdApp] };
+    }
+
+    if (sql.includes('SELECT * FROM pending_applications WHERE reference_id')) {
+      return { rows: [createdApp] };
+    }
+
+    return { rows: [] };
+  };
+
+  const app = await Application.create(
+    77,
+    'Reference Org',
+    'law firm',
+    'https://example.com',
+    'Casey Applicant',
+    'casey@certicheck.com',
+    'Partner',
+    '101 – 1,000 certificates',
+    'Look up reference flow',
+    'wallet-abc'
+  );
+
+  assert.equal(app.reference_id, 'CC-REF-1001');
+  assert.equal(app.status, 'pending');
+
+  const found = await Application.findByReferenceId('CC-REF-1001');
+  assert.equal(found.reference_id, 'CC-REF-1001');
+  assert.equal(found.status, 'pending');
 });

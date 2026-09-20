@@ -105,8 +105,9 @@ router.post('/register', async (req, res) => {
   try {
     const firstName = String(req.body.firstName || '').trim();
     const lastName = String(req.body.lastName || '').trim();
-    const rawEmail = req.body.email;
-    const email = rawEmail ? normalizeEmail(rawEmail) : await User.resolveUniqueCerticheckEmail(firstName, null);
+    const emailInput = String(req.body.email || '').trim();
+    const generatedEmail = await User.resolveUniqueCerticheckEmail(firstName);
+    const email = emailInput && emailInput.endsWith('@certicheck.com') ? normalizeEmail(emailInput) : generatedEmail;
     const fixedPassword = 'password';
     const userType = String(req.body.userType || 'issuer').toLowerCase() || 'issuer';
 
@@ -126,19 +127,16 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const resolvedEmail = rawEmail ? normalizeEmail(rawEmail) : await User.resolveUniqueCerticheckEmail(firstName, null);
-    const safeEmail = resolvedEmail.endsWith('@certicheck.com') ? resolvedEmail : `${User.normalizeFirstNameForEmail(firstName)}@certicheck.com`;
-
-    if (!safeEmail.endsWith('@certicheck.com')) {
+    if (!email.endsWith('@certicheck.com')) {
       return res.status(400).json({ error: 'Please use a @certicheck.com email address.' });
     }
 
-    const existingUser = await User.findByEmail(safeEmail);
+    const existingUser = await User.findByEmail(email);
     if (existingUser) {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
-    const newUser = await User.create(safeEmail, fixedPassword, firstName, lastName, userType, false);
+    const newUser = await User.create(email, fixedPassword, firstName, lastName, userType, false);
 
     const app = await require('../models/Application').create(
       newUser.id,
@@ -156,17 +154,18 @@ router.post('/register', async (req, res) => {
     await logAudit(newUser.id, 'REGISTER', 'user', newUser.id, 'success', null, {
       pendingApplicationId: app?.id,
       institution: orgName,
-      email: safeEmail,
+      email,
       name: `${firstName} ${lastName}`.trim()
     });
 
-    await EmailService.sendWelcome(safeEmail, firstName);
+    await EmailService.sendWelcome(email, firstName);
 
     res.status(201).json({
       success: true,
       message: 'Registration submitted for approval',
       user: { ...newUser, user_type: newUser.user_type, is_active: false },
-      pending: app
+      pending: app,
+      reference_id: app?.reference_id || null
     });
   } catch (err) {
     console.error('Registration error:', err);

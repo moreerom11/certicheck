@@ -437,6 +437,9 @@ async function loginAdmin(event) {
   event.preventDefault();
   const emailInput = document.getElementById("adminEmail");
   const passwordInput = document.getElementById("adminPassword");
+  if (emailInput && !emailInput.value.trim()) {
+    emailInput.value = "admin@certicheck.com";
+  }
   const email = emailInput?.value?.trim() || "";
   const password = passwordInput?.value || "";
 
@@ -480,7 +483,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const returnBtn = document.getElementById("adminReturnBtn");
 
   loginForm?.addEventListener("submit", loginAdmin);
-  logoutBtn?.addEventListener("click", () => setAdminState(false));
+  logoutBtn?.addEventListener("click", () => {
+    setAdminState(false);
+    window.location.href = "index.html";
+  });
   returnBtn?.addEventListener("click", () => window.location.href = "index.html");
 
   const storedUser = localStorage.getItem(ADMIN_USER_KEY);

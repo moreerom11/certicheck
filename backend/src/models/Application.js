@@ -30,8 +30,32 @@ class Application {
     return raw;
   }
 
+  static async generateReferenceId() {
+    const prefix = 'CC-REF';
+
+    const buildCandidate = () => {
+      const randomNumber = Math.floor(1000 + Math.random() * 9000);
+      return `${prefix}-${String(randomNumber).padStart(4, '0')}`;
+    };
+
+    let candidate = buildCandidate();
+    while (true) {
+      const exists = await pool.query(
+        'SELECT id FROM pending_applications WHERE reference_id = $1 LIMIT 1',
+        [candidate]
+      );
+
+      if (!exists.rows[0]) {
+        return candidate;
+      }
+
+      candidate = buildCandidate();
+    }
+  }
+
   static async create(issuerId, orgName, orgType, website, contactName, contactEmail, contactRole, volume, useCase, wallet) {
     const normalizedEmail = this.normalizeIssuerEmail(contactEmail, contactName);
+    const referenceId = await this.generateReferenceId();
 
     const existingProfile = await pool.query(
       'SELECT id FROM issuer_profiles WHERE user_id = $1 LIMIT 1',
@@ -59,12 +83,23 @@ class Application {
 
     const result = await pool.query(
       `INSERT INTO pending_applications 
-       (issuer_id, organization_name, organization_type, organization_website, contact_name, contact_email, contact_role, certificate_volume, use_case, wallet_address)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, organization_name, status, submitted_at`,
-      [issuerProfileId, orgName, orgType, website, contactName, normalizedEmail, contactRole, volume, useCase, wallet]
+       (issuer_id, organization_name, organization_type, organization_website, contact_name, contact_email, contact_role, certificate_volume, use_case, wallet_address, reference_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, organization_name, status, submitted_at, reference_id`,
+      [issuerProfileId, orgName, orgType, website, contactName, normalizedEmail, contactRole, volume, useCase, wallet, referenceId]
     );
     return result.rows[0];
+  }
+
+  static async findByReferenceId(referenceId) {
+    const normalizedRef = String(referenceId || '').trim();
+    if (!normalizedRef) return null;
+
+    const result = await pool.query(
+      `SELECT * FROM pending_applications WHERE reference_id = $1 LIMIT 1`,
+      [normalizedRef]
+    );
+    return result.rows[0] || null;
   }
 
   static async getPending(limit = 50, offset = 0) {
