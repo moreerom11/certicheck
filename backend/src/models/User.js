@@ -6,41 +6,6 @@ class User {
     return String(email || '').trim().toLowerCase();
   }
 
-  static normalizeFirstNameForEmail(firstName = '') {
-    const value = String(firstName || '').trim();
-    const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, '');
-    return normalized || 'user';
-  }
-
-  static async resolveUniqueCerticheckEmail(firstName = '', excludeEmail = null) {
-    const base = this.normalizeFirstNameForEmail(firstName);
-    const used = new Set();
-    const exclude = this.normalizeEmail(excludeEmail);
-
-    const result = await pool.query(
-      `SELECT email FROM users WHERE email ILIKE $1`,
-      [`${base}%@certicheck.com`]
-    );
-
-    for (const row of result.rows || []) {
-      const email = this.normalizeEmail(row.email);
-      if (email && email.endsWith('@certicheck.com')) {
-        used.add(email);
-      }
-    }
-
-    if (exclude) used.delete(exclude);
-
-    let candidateBase = base;
-    let suffix = 0;
-    while (used.has(`${candidateBase}@certicheck.com`)) {
-      suffix += 1;
-      candidateBase = `${base}${suffix}`;
-    }
-
-    return `${candidateBase}@certicheck.com`;
-  }
-
   static async create(email, password, firstName, lastName, userType = 'user', isActive = true) {
     const normalizedEmail = this.normalizeEmail(email);
     const hashedPassword = await bcrypt.hash(password, 10);

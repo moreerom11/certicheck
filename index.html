@@ -34,6 +34,7 @@
 
       <ul class="nav-links" role="list">
       <li><button class="nav-item active" data-page="home">Home</button></li>
+      <li><button class="nav-item" data-page="apply">Apply</button></li>
       <li><button class="nav-item" data-page="faqs">FAQs</button></li>
       <li><button class="nav-item" data-page="tps">TP/S</button></li>
       <li><button class="nav-item" data-page="test">Test</button></li>
@@ -45,6 +46,7 @@
 
     <div class="nav-actions">
       <button id="themeToggle" class="btn-toggle" aria-label="Toggle dark mode" title="Switch to dark mode"></button>
+      <button class="btn-ghost" data-page="signup">Sign up</button>
       <button class="btn-ghost" data-page="login">Login</button>
     </div>
   </nav>
@@ -90,6 +92,11 @@
 
           <div class="entry-card">
             <div class="entry-title"></div>
+            <div class="entry-actions"><button id="homeGraduateBtn" class="btn-outline" data-page="signup">Sign in / Sign up</button></div>
+          </div>
+
+          <div class="entry-card">
+            <div class="entry-title"></div>
             <div class="entry-actions"><button id="homeIssuerBtn" class="btn-outline" data-page="apply">Apply as issuer</button></div>
           </div>
         </div>
@@ -114,16 +121,6 @@
             <div class="stat-val">100%</div>
             <div class="stat-label">On-chain</div>
           </div>
-        </div>
-
-        <div class="form-card" style="margin-top:20px;max-width:560px;">
-          <div class="page-tag" style="margin-bottom:10px;display:inline-block;">Approval check</div>
-          <label class="field-label" for="homeStatusReference" style="margin-bottom:8px;display:block;">Check your issuer application status</label>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-            <input class="field-input" id="homeStatusReference" type="text" value="" placeholder="Enter your reference ID" style="flex:1;min-width:220px;" />
-            <button class="btn-primary" id="homeCheckStatusBtn" type="button">Check status</button>
-          </div>
-          <div id="homeStatusResult" style="margin-top:14px;"></div>
         </div>
       </div>
 
@@ -333,8 +330,8 @@
   <div id="page-signup" class="page">
     <div class="page-wrap" style="max-width:500px">
       <div class="page-header">
-        <h1 class="page-title">Apply for issuer access</h1>
-        <p class="page-desc">Submit your request to access the Certicheck issuer platform.</p>
+        <h1 class="page-title">Create Account</h1>
+        <p class="page-desc">Sign up to apply for issuer access or use the platform.</p>
       </div>
 
       <div class="form-card">
@@ -350,8 +347,43 @@
           <label class="field-label" for="signupLastName">Last Name</label>
           <input class="field-input" id="signupLastName" name="family-name" type="text" autocomplete="family-name" placeholder="Doe"/>
         </div>
+        <div class="field">
+          <label class="field-label" for="signupPassword">Password</label>
+          <input class="field-input" id="signupPassword" name="new-password" type="password" autocomplete="new-password" placeholder="••••••••"/>
+        </div>
+        <div class="field">
+          <label class="field-label" for="signupConfirmPassword">Confirm Password</label>
+          <input class="field-input" id="signupConfirmPassword" name="new-password" type="password" autocomplete="new-password" placeholder="••••••••"/>
+        </div>
         <div id="signupError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
-        <button class="btn-primary" id="signupBtn" style="width:100%">Submit request</button>
+        <button class="btn-primary" id="signupBtn" style="width:100%">Send OTP</button>
+        <p style="text-align:center;color:var(--text-secondary);margin-top:16px;font-size:13px">
+          Already have an account? <button class="btn-ghost" data-page="login" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer">Login</button>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PAGE: OTP VERIFICATION (Signup)
+  ══════════════════════════════════════ -->
+  <div id="page-verify-otp" class="page">
+    <div class="page-wrap" style="max-width:500px">
+      <div class="page-header">
+        <h1 class="page-title">Verify Email</h1>
+        <p class="page-desc" id="otpEmailDesc">Enter the 6-digit code sent to your email.</p>
+      </div>
+
+      <div class="form-card">
+        <div class="field">
+          <label class="field-label" for="otpCode">Verification Code</label>
+          <input class="field-input" id="otpCode" type="text" placeholder="000000" maxlength="6" inputmode="numeric" style="text-align:center;font-size:24px;letter-spacing:4px;font-weight:600;"/>
+        </div>
+        <div id="otpError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
+        <button class="btn-primary" id="verifyOtpBtn" style="width:100%">Verify & Create Account</button>
+        <p style="text-align:center;color:var(--text-secondary);margin-top:16px;font-size:13px">
+          Didn't receive code? <button class="btn-ghost" id="resendOtpBtn" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer">Resend</button>
+        </p>
       </div>
     </div>
   </div>
@@ -369,7 +401,7 @@
       <div class="form-card">
         <div class="field">
           <label class="field-label" for="loginEmail">Email</label>
-          <input class="field-input" id="loginEmail" name="email" type="email" autocomplete="email" placeholder="name@certicheck.com" value="issuer@certicheck.com"/>
+          <input class="field-input" id="loginEmail" name="email" type="email" autocomplete="email" placeholder="your@email.com"/>
         </div>
         <div class="field">
           <label class="field-label" for="loginPassword">Password</label>
@@ -379,9 +411,15 @@
           <input id="loginRemember" type="checkbox" style="width:16px;height:16px;" />
           <label for="loginRemember" style="margin:0;cursor:pointer;font-size:14px;color:var(--text-secondary);">Remember my email</label>
         </div>
+        <div id="loginHelp" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
+          Email will be remembered on this device when checked. The browser may also auto-suggest your last used email.
+        </div>
         <div id="loginStatus" style="font-size:13px;color:var(--green);margin-bottom:16px;display:none;"></div>
         <div id="loginError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
         <button class="btn-primary" id="loginBtn" style="width:100%">Sign In</button>
+        <p style="text-align:center;color:var(--text-secondary);margin-top:16px;font-size:13px">
+          Don't have an account? <button class="btn-ghost" data-page="signup" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer">Sign up</button>
+        </p>
         <p style="text-align:center;color:var(--text-secondary);margin-top:12px;font-size:13px">
           <button class="btn-ghost" data-page="forgot-password" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer">Forgot password?</button>
         </p>
@@ -474,8 +512,6 @@
               <option value="university">University</option>
               <option value="college">College</option>
               <option value="bootcamp">Bootcamp</option>
-              <option value="law-firm">Law Firm</option>
-              <option value="bank">Bank</option>
               <option value="corporate">Corporate</option>
               <option value="government">Government</option>
               <option value="ngo">NGO</option>
@@ -501,9 +537,7 @@
           </div>
           <div class="field">
             <label class="field-label" for="contactRole">Role / Title</label>
-            <select class="field-input" id="contactRole">
-              <option value="">Select a role/title</option>
-            </select>
+            <input class="field-input" id="contactRole" placeholder="e.g. Registrar, CTO" type="text"/>
           </div>
         </div>
 
@@ -534,6 +568,13 @@
           </div>
         </div>
 
+        <!-- Success -->
+        <div class="form-step" id="form-step-success" style="text-align:center;padding:40px 0">
+          <div class="success-icon">✓</div>
+          <h2 class="font-display" style="font-size:28px;font-weight:800;margin-bottom:12px;color:var(--text-primary)">Application Received</h2>
+          <p style="color:var(--text-secondary);line-height:1.8" id="successMsg">Our team will review your application and be in touch within 1–3 business days.</p>
+        </div>
+
         <div class="form-actions" id="formActions">
           <button class="btn-ghost" id="formBack" style="display:none">← Back</button>
           <button class="btn-primary" id="formNext">Continue →</button>
@@ -556,9 +597,8 @@
       <div class="form-card">
         <div id="issuerNotice" class="alert alert-info">Sign in to issue certificates.</div>
         <div id="issuerFormWrap" style="display:none">
-          <form id="issuerIssueForm" novalidate>
             <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
-              <button id="connectWalletBtn" class="btn-ghost" type="button">Connect Wallet (Phantom)</button>
+              <button id="connectWalletBtn" class="btn-ghost">Connect Wallet (Phantom)</button>
               <div id="connectedWalletBadge" style="font-family:var(--font-mono);color:var(--text-secondary)"></div>
             </div>
 
@@ -566,73 +606,48 @@
               <h4 style="margin:0 0 8px 0">Issued Certificates</h4>
               <div id="issuerCertificatesList" style="border:1px dashed rgba(0,0,0,0.06);padding:12px;border-radius:8px;background:var(--card-bg);min-height:60px">No certificates issued yet.</div>
             </div>
-            <div class="field">
-              <label class="field-label" for="issuerCertId">Certificate ID</label>
-              <input class="field-input" id="issuerCertId" placeholder="CERT-SOL-2026-001" type="text" value="CERT-SOL-2026-001"/>
-            </div>
-            <div class="field">
-              <label class="field-label" for="issuerHolderName">Holder Name</label>
-              <input class="field-input" id="issuerHolderName" placeholder="Jane Doe" type="text" value="Jane Doe"/>
-            </div>
-            <div class="field">
-              <label class="field-label" for="issuerHolderEmail">Holder Email</label>
-              <input class="field-input" id="issuerHolderEmail" placeholder="jane@example.com" type="email" value="jane@example.com"/>
-            </div>
-            <div class="field">
-              <label class="field-label" for="issuerOrgType">Organisation Type</label>
-              <select class="field-input" id="issuerOrgType">
-                <option value="university">University</option>
-                <option value="college">College</option>
-                <option value="bootcamp">Bootcamp</option>
-                <option value="law-firm">Law Firm</option>
-                <option value="bank">Bank</option>
-                <option value="corporate">Corporate</option>
-                <option value="government">Government</option>
-                <option value="ngo">NGO</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="field-label" for="issuerType">Certificate Type</label>
-              <select class="field-input" id="issuerType"></select>
-            </div>
-            <div id="issuerDynamicFields" style="display:grid;gap:14px;margin-top:8px;"></div>
-            <div class="field">
-              <label class="field-label" for="issuerMediaUrl">Media Evidence URL (optional)</label>
-              <input class="field-input" id="issuerMediaUrl" placeholder="https://example.com/will-announcement.mp4" type="url"/>
-            </div>
-            <div class="field">
-              <label class="field-label" for="issuerMediaUpload">Upload Media Evidence (optional)</label>
-              <input class="field-input" id="issuerMediaUpload" type="file" accept="video/*,image/*"/>
-              <div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">Use this for a will declaration video, witness statement, or institution-issued media proof.</div>
-            </div>
-            <div class="field">
-              <label class="field-label" for="issuerMetadata">Metadata (optional)</label>
-              <textarea class="field-input" id="issuerMetadata" rows="3" placeholder='e.g. {"course":"Blockchain 101","grade":"Distinction"}'></textarea>
-            </div>
-            <div class="field">
-              <label class="field-label" for="issuerExpiry">Expiry Date (optional)</label>
-              <input class="field-input" id="issuerExpiry" type="date" />
-            </div>
-            <div class="field">
-              <label class="field-label" for="issuerName">Issuer Name</label>
-              <input class="field-input" id="issuerName" placeholder="Certicheck Issuer" type="text" value="Certicheck Issuer"/>
-            </div>
-            <div class="field">
-              <label class="field-label" for="issuerWallet">Issuer Wallet</label>
-              <input class="field-input font-mono" id="issuerWallet" placeholder="Optional wallet address" type="text"/>
-            </div>
-            <div class="field field-checkbox">
-              <label class="field-label" for="issuerOnChain">
-                <input id="issuerOnChain" type="checkbox" style="margin-right:8px;vertical-align:middle;"/>
-                Issue on-chain (devnet/mainnet)
-              </label>
-              <p style="margin:6px 0 0 28px;color:var(--text-secondary);font-size:13px;">Enable this to submit the certificate to the deployed Anchor program.</p>
-            </div>
-            <div id="issuerError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
-            <button class="btn-primary" id="issuerSubmitBtn" type="button" style="width:100%">Issue Certificate</button>
-            <div id="issuerResult" style="margin-top:16px"></div>
-          </form>
+          <div class="field">
+            <label class="field-label" for="issuerCertId">Certificate ID</label>
+            <input class="field-input" id="issuerCertId" placeholder="CERT-SOL-2026-001" type="text" value="CERT-SOL-2026-001"/>
+          </div>
+          <div class="field">
+            <label class="field-label" for="issuerHolderName">Holder Name</label>
+            <input class="field-input" id="issuerHolderName" placeholder="Jane Doe" type="text" value="Jane Doe"/>
+          </div>
+          <div class="field">
+            <label class="field-label" for="issuerHolderEmail">Holder Email</label>
+            <input class="field-input" id="issuerHolderEmail" placeholder="jane@example.com" type="email" value="jane@example.com"/>
+          </div>
+          <div class="field">
+            <label class="field-label" for="issuerType">Certificate Type</label>
+            <input class="field-input" id="issuerType" placeholder="Degree Certificate" type="text" value="Degree Certificate"/>
+          </div>
+          <div class="field">
+            <label class="field-label" for="issuerMetadata">Metadata (optional)</label>
+            <textarea class="field-input" id="issuerMetadata" rows="3" placeholder='e.g. {"course":"Blockchain 101","grade":"Distinction"}'></textarea>
+          </div>
+          <div class="field">
+            <label class="field-label" for="issuerExpiry">Expiry Date (optional)</label>
+            <input class="field-input" id="issuerExpiry" type="date" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="issuerName">Issuer Name</label>
+            <input class="field-input" id="issuerName" placeholder="Certicheck Issuer" type="text" value="Certicheck Issuer"/>
+          </div>
+          <div class="field">
+            <label class="field-label" for="issuerWallet">Issuer Wallet</label>
+            <input class="field-input font-mono" id="issuerWallet" placeholder="Optional wallet address" type="text"/>
+          </div>
+          <div class="field field-checkbox">
+            <label class="field-label" for="issuerOnChain">
+              <input id="issuerOnChain" type="checkbox" style="margin-right:8px;vertical-align:middle;"/>
+              Issue on-chain (devnet/mainnet)
+            </label>
+            <p style="margin:6px 0 0 28px;color:var(--text-secondary);font-size:13px;">Enable this to submit the certificate to the deployed Anchor program.</p>
+          </div>
+          <div id="issuerError" style="color:var(--red);font-size:13px;margin-bottom:16px;display:none;"></div>
+          <button class="btn-primary" id="issuerSubmitBtn" style="width:100%">Issue Certificate</button>
+          <div id="issuerResult" style="margin-top:16px"></div>
         </div>
       </div>
     </div>

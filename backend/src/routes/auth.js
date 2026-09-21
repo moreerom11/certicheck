@@ -103,11 +103,8 @@ router.post('/verify-otp', async (req, res) => {
 // ── REGISTER WITH OTP ────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
-    const firstName = String(req.body.firstName || '').trim();
-    const lastName = String(req.body.lastName || '').trim();
-    const emailInput = String(req.body.email || '').trim();
-    const generatedEmail = await User.resolveUniqueCerticheckEmail(firstName);
-    const email = emailInput && emailInput.endsWith('@certicheck.com') ? normalizeEmail(emailInput) : generatedEmail;
+    const email = normalizeEmail(req.body.email);
+    const { firstName, lastName } = req.body;
     const fixedPassword = 'password';
     const userType = String(req.body.userType || 'issuer').toLowerCase() || 'issuer';
 
@@ -123,7 +120,7 @@ router.post('/register', async (req, res) => {
     const useCase = String(req.body.useCase || 'Pending issuer signup approval').trim();
     const wallet = String(req.body.wallet || '').trim();
 
-    if (!firstName || !lastName) {
+    if (!email || !firstName || !lastName) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -164,8 +161,7 @@ router.post('/register', async (req, res) => {
       success: true,
       message: 'Registration submitted for approval',
       user: { ...newUser, user_type: newUser.user_type, is_active: false },
-      pending: app,
-      reference_id: app?.reference_id || null
+      pending: app
     });
   } catch (err) {
     console.error('Registration error:', err);
