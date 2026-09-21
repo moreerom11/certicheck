@@ -76,6 +76,14 @@ test('new issuer signups create a pending approval record for the admin portal',
   assert.match(app.organization_name, /Test Org Pending/);
 });
 
+test('database bootstrap adds the application reference column for legacy installations', async () => {
+  const fs = require('node:fs');
+  const sql = fs.readFileSync(require('node:path').join(__dirname, '../src/db/init.sql'), 'utf8');
+
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS reference_id VARCHAR\(64\)/);
+  assert.match(sql, /CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_applications_reference_id/i);
+});
+
 test('applications get a unique reference ID and status lookup exposes approval result', async () => {
   const createdApp = {
     id: 120,

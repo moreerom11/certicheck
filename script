@@ -785,6 +785,10 @@ function navigate(page) {
 
   if (page === 'home') {
     renderRoleLandingHome();
+    const homeStatusInput = document.getElementById('homeStatusReference');
+    const homeStatusResult = document.getElementById('homeStatusResult');
+    if (homeStatusInput) homeStatusInput.value = '';
+    if (homeStatusResult) homeStatusResult.innerHTML = '';
   }
 
   // Activate nav item
@@ -2600,9 +2604,52 @@ async function copyTextToClipboard(value) {
   }
 }
 
+function formatApplicationStatusLabel(status) {
+  const normalized = String(status || 'pending').trim().toLowerCase();
+
+  if (normalized === 'approved') return 'Approval successful';
+  if (normalized === 'rejected') return 'Rejected';
+  return 'Pending';
+}
+
+const RECENT_APPLICATIONS_KEY = 'certicheck_recent_application_refs';
+
+function readRecentApplicationRecords() {
+  try {
+    const raw = localStorage.getItem(RECENT_APPLICATIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentApplicationRecord(record) {
+  if (!record || !record.reference_id) return;
+
+  const existing = readRecentApplicationRecords();
+  const filtered = existing.filter(item => String(item.reference_id || '').toLowerCase() !== String(record.reference_id || '').toLowerCase());
+  filtered.push({
+    reference_id: String(record.reference_id).trim(),
+    status: String(record.status || 'pending').trim().toLowerCase(),
+    institution: record.institution || 'Your organization',
+    name: record.name || 'Applicant',
+    submitted_at: record.submitted_at || new Date().toISOString()
+  });
+
+  localStorage.setItem(RECENT_APPLICATIONS_KEY, JSON.stringify(filtered.slice(-25)));
+}
+
+function getRecentApplicationRecord(referenceId) {
+  const trimmed = String(referenceId || '').trim();
+  if (!trimmed) return null;
+  const match = readRecentApplicationRecords().find(item => String(item.reference_id || '').toLowerCase() === trimmed.toLowerCase());
+  return match || null;
+}
+
 function buildApplicationStatusLookupMarkup(referenceId, status) {
   const safeRef = referenceId || 'CC-REF-0000';
   const safeStatus = status || 'pending';
+  const statusLabel = formatApplicationStatusLabel(safeStatus);
 
   return `
     <div style="margin-top:18px;padding:16px;border:1px solid rgba(15,23,42,0.08);border-radius:14px;background:rgba(15,23,42,0.02)">
@@ -2612,7 +2659,7 @@ function buildApplicationStatusLookupMarkup(referenceId, status) {
         <button type="button" class="btn-ghost" data-copy-ref="${safeRef}" style="padding:6px 10px;font-size:12px;">Copy</button>
       </div>
       <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(59,130,246,0.1);color:#1d4ed8;font-weight:700;font-size:12px;text-transform:capitalize">${safeStatus}</span>
+        <span style="display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(59,130,246,0.1);color:#1d4ed8;font-weight:700;font-size:12px;">${statusLabel}</span>
         <button type="button" class="btn-ghost" data-check-status="${safeRef}" style="padding:8px 12px">Check status</button>
       </div>
     </div>
@@ -2631,9 +2678,31 @@ function lookupApplicationStatus(referenceId) {
   fetch(`${API_BASE_URL}/applications/status/${encodeURIComponent(trimmed)}`)
     .then(async response => {
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Application not found');
+      if (!response.ok) {
+        const localMatch = getRecentApplicationRecord(trimmed);
+        if (localMatch) {
+          const status = String(localMatch.status || 'pending').trim().toLowerCase();
+          const displayStatus = formatApplicationStatusLabel(status);
+          const message = status === 'approved'
+            ? `${localMatch.institution || 'Your organization'} is approved and ready to issue certificates.`
+            : status === 'rejected'
+              ? `${localMatch.name || 'Applicant'}'s application was rejected. Please review the admin notes and reapply with updated details.`
+              : 'Your application is still pending review by the admin team.';
 
-      const status = data.status || 'pending';
+          resultCard.innerHTML = `
+            <div class="alert ${status === 'approved' ? 'alert-success' : status === 'rejected' ? 'alert-error' : 'alert-info'}">
+              <strong>Reference: ${trimmed}</strong><br/>
+              <span>Status: ${displayStatus}</span><br/>
+              ${message}
+            </div>
+          `;
+          return;
+        }
+        throw new Error(data.error || 'Application not found');
+      }
+
+      const status = String(data.status || 'pending').trim().toLowerCase();
+      const displayStatus = formatApplicationStatusLabel(status);
       const institution = data.application?.institution || 'Your organization';
       const contactName = data.application?.name || 'Applicant';
       const message = status === 'approved'
@@ -2642,17 +2711,61 @@ function lookupApplicationStatus(referenceId) {
           ? `${contactName}'s application was rejected. Please review the admin notes and reapply with updated details.`
           : 'Your application is still pending review by the admin team.';
 
+      saveRecentApplicationRecord({
+        reference_id: data.reference_id || trimmed,
+        status,
+        institution,
+        name: contactName
+      });
+
       resultCard.innerHTML = `
         <div class="alert ${status === 'approved' ? 'alert-success' : status === 'rejected' ? 'alert-error' : 'alert-info'}">
           <strong>Reference: ${trimmed}</strong><br/>
-          <span style="text-transform:capitalize">Status: ${status}</span><br/>
+          <span>Status: ${displayStatus}</span><br/>
           ${message}
         </div>
       `;
     })
     .catch(err => {
+      const localMatch = getRecentApplicationRecord(trimmed);
+      if (localMatch) {
+        const status = String(localMatch.status || 'pending').trim().toLowerCase();
+        const displayStatus = formatApplicationStatusLabel(status);
+        const message = status === 'approved'
+          ? `${localMatch.institution || 'Your organization'} is approved and ready to issue certificates.`
+          : status === 'rejected'
+            ? `${localMatch.name || 'Applicant'}'s application was rejected. Please review the admin notes and reapply with updated details.`
+            : 'Your application is still pending review by the admin team.';
+
+        resultCard.innerHTML = `
+          <div class="alert ${status === 'approved' ? 'alert-success' : status === 'rejected' ? 'alert-error' : 'alert-info'}">
+            <strong>Reference: ${trimmed}</strong><br/>
+            <span>Status: ${displayStatus}</span><br/>
+            ${message}
+          </div>
+        `;
+        return;
+      }
+
       resultCard.innerHTML = `<div class="alert alert-error">${err.message || 'Unable to look up this application.'}</div>`;
     });
+}
+
+function openApprovalCheck(referenceId) {
+  const trimmed = String(referenceId || '').trim();
+  if (!trimmed) return;
+
+  navigate('home');
+
+  setTimeout(() => {
+    const homeInput = document.getElementById('homeStatusReference');
+    const homeResult = document.getElementById('homeStatusResult');
+    if (homeInput) homeInput.value = trimmed;
+    if (homeResult) {
+      homeResult.innerHTML = '<div class="alert alert-info">Checking your application status...</div>';
+    }
+    lookupApplicationStatus(trimmed);
+  }, 120);
 }
 
 function submitApplyForm() {
@@ -2818,6 +2931,14 @@ function showSuccessMessage(name, email, volumeText, referenceId = null) {
   const formCard = document.getElementById("applyFormCard");
   if (formCard) {
     const appReferenceId = referenceId || 'CC-REF-UNKNOWN';
+    if (referenceId) {
+      saveRecentApplicationRecord({
+        reference_id: referenceId,
+        status: 'pending',
+        institution: 'Your organization',
+        name: name || 'Applicant'
+      });
+    }
     formCard.innerHTML = `
       <div style="padding:20px 8px 8px; text-align:center;">
         <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:rgba(16,185,129,0.12);color:var(--green);font-size:32px;margin-bottom:16px;">✓</div>
@@ -2834,7 +2955,7 @@ function showSuccessMessage(name, email, volumeText, referenceId = null) {
 
     const statusButton = formCard.querySelector('[data-check-status]');
     if (statusButton) {
-      statusButton.addEventListener('click', () => lookupApplicationStatus(statusButton.getAttribute('data-check-status')));
+      statusButton.addEventListener('click', () => openApprovalCheck(statusButton.getAttribute('data-check-status')));
     }
 
     const copyButton = formCard.querySelector('[data-copy-ref]');
